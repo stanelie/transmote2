@@ -1,0 +1,256 @@
+package com.stanelie.transmote2
+
+import android.util.Log
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.SerialName
+
+@Serializable
+data class FileStat(
+    val bytesCompleted: Long,
+    val wanted: Boolean,
+    val priority: Int
+)
+
+// This class is for the main torrent list, without file details
+@Serializable
+data class TorrentInfo(
+    val id: Int,
+    val name: String,
+    val status: Int,
+    val rateDownload: Long,
+    val rateUpload: Long,
+    val sizeWhenDone: Long,
+    val uploadedEver: Long,
+    val percentDone: Double,
+    val eta: Long,
+    val error: Int,
+    val errorString: String,
+    val isFinished: Boolean,
+    val isStalled: Boolean,
+    val queuePosition: Int,
+    val addedDate: Long,
+    val peersConnected: Int = 0
+)
+
+@Serializable
+data class TorrentFile(
+    val bytesCompleted: Long,
+    val length: Long,
+    val name: String,
+    var priority: Int = 0
+)
+
+@Serializable
+data class RpcRequest<T>(
+    val method: String,
+    val arguments: T,
+    val tag: Int? = null
+)
+
+@Serializable
+data class RpcResponse<T>(
+    val result: String,
+    val arguments: T
+)
+
+@Serializable
+data class GetTorrentsArgs(
+    val fields: List<String>,
+    val ids: List<Int>? = null
+)
+
+// Response for the main torrent list
+@Serializable
+data class GetTorrentsResponseArgs(
+    val torrents: List<TorrentInfo>
+)
+
+// Specialized response classes for getTorrentFiles to avoid deserialization conflicts
+@Serializable
+data class TorrentFilesResponse(
+    val id: Int,
+    val name: String,
+    val files: List<TorrentFile>? = null,
+    @SerialName("fileStats") val fileStats: List<FileStat>? = null
+)
+
+@Serializable
+data class GetTorrentFilesResponseArgs(
+    val torrents: List<TorrentFilesResponse>
+)
+
+@Serializable
+data class TorrentSetArgs(
+    val ids: List<Int>? = null,
+    @SerialName("files-wanted") val filesWanted: List<Int>? = null,
+    @SerialName("files-unwanted") val filesUnwanted: List<Int>? = null,
+    @SerialName("priority-high-ids") val priorityHighIds: List<Int>? = null,
+    @SerialName("priority-normal-ids") val priorityNormalIds: List<Int>? = null,
+    @SerialName("priority-low-ids") val priorityLowIds: List<Int>? = null
+)
+
+@Serializable
+data class TorrentActionArgs(
+    val ids: List<Int>
+)
+
+@Serializable
+data class TorrentRemoveArgs(
+    val ids: List<Int>,
+    @SerialName("delete-local-data") val deleteLocalData: Boolean = false
+)
+
+@Serializable
+data class TorrentAddArgs(
+    val filename: String? = null,
+    val metainfo: String? = null
+)
+
+class TransmissionRpcClient(private val settings: ConnectionSettings) {
+
+    private val client = HttpClient(OkHttp) {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    }
+
+    private var sessionId: String? = null
+    private val TAG = "TransmissionRpcClient"
+
+    private fun buildRpcUrl(): String {
+        val protocol = if (settings.useSsl) "https" else "http"
+        return "$protocol://${settings.serverAddress}:${settings.port}/transmission/rpc"
+    }
+
+    private suspend inline fun <reified T, reified R> makeRpcCall(method: String, arguments: T): RpcResponse<R> {
+        val requestBody = RpcRequest(method, arguments)
+        val rpcUrl = buildRpcUrl()
+
+        for (attempt in 1..2) {
+            val response: HttpResponse = client.post(rpcUrl) {
+                contentType(ContentType.Application.Json)
+                setBody(requestBody)
+                headers {
+                    settings.username.takeIf { it.isNotEmpty() }?.let {
+                        val auth = "${settings.username}:${settings.password}"
+                        val encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.toByteArray())
+                        append(HttpHeaders.Authorization, "Basic $encodedAuth")
+                    }
+                    sessionId?.let { append("X-Transmission-Session-Id", it) }
+                }
+            }
+
+            if (response.status == HttpStatusCode.Conflict && attempt == 1) {
+                sessionId = response.headers["X-Transmission-Session-Id"]
+                if (sessionId != null) {
+                    continue // Retry the loop
+                } else {
+                    throw IllegalStateException("Failed to retrieve X-Transmission-Session-Id on Conflict")
+                }
+            }
+
+            if (!response.status.isSuccess()) {
+                throw Exception("RPC call failed with status: ${response.status} on attempt $attempt")
+            }
+
+            return response.body() // Success, deserialize and return
+        }
+        
+        throw IllegalStateException("RPC call failed after multiple attempts")
+    }
+
+    suspend fun getTorrents(): List<TorrentInfo> {
+        val fields = listOf(
+            "id", "name", "status", "rateDownload", "rateUpload", "sizeWhenDone",
+            "uploadedEver", "percentDone", "eta", "error", "errorString",
+            "isFinished", "isStalled", "queuePosition", "addedDate", "peersConnected"
+        )
+        val args = GetTorrentsArgs(fields = fields)
+        val response: RpcResponse<GetTorrentsResponseArgs> = makeRpcCall("torrent-get", args)
+        return response.arguments.torrents
+    }
+
+    suspend fun getTorrentFiles(torrentId: Int): List<TorrentFile> {
+        // Request only the essential fields to ensure fileStats is returned
+        val fields = listOf("id", "name", "files", "fileStats")
+        val args = GetTorrentsArgs(ids = listOf(torrentId), fields = fields)
+        // Use the specialized response type
+        val response: RpcResponse<GetTorrentFilesResponseArgs> = makeRpcCall("torrent-get", args)
+        
+        val torrentDetails = response.arguments.torrents.firstOrNull()
+        val files = torrentDetails?.files ?: emptyList()
+        val fileStats = torrentDetails?.fileStats ?: emptyList()
+
+        Log.d(TAG, "getTorrentFiles: Received fileStats for torrent $torrentId: $fileStats")
+
+        return files.mapIndexed { index, file ->
+            val stat = fileStats.getOrNull(index)
+            val assignedPriority = if (stat?.wanted == false) {
+                -1 // Unwanted
+            } else {
+                stat?.priority ?: 0 // Use priority if wanted, otherwise default to normal
+            }
+            Log.d(TAG, "getTorrentFiles: File ${file.name} (index $index) wanted=${stat?.wanted}, priority=${stat?.priority} -> assignedPriority=$assignedPriority")
+            file.copy(priority = assignedPriority)
+        }
+    }
+
+    suspend fun setFilePriorities(torrentId: Int, fileIndices: List<Int>, priority: Int): RpcResponse<Unit> {
+        Log.d(TAG, "Attempting to set file priorities for torrent $torrentId, files: $fileIndices, target priority: $priority")
+
+        val args = when (priority) {
+            -1 -> TorrentSetArgs(
+                ids = listOf(torrentId),
+                filesUnwanted = fileIndices,
+                priorityLowIds = fileIndices
+            )
+            0 -> TorrentSetArgs(
+                ids = listOf(torrentId),
+                filesWanted = fileIndices,
+                priorityNormalIds = fileIndices
+            )
+            1 -> TorrentSetArgs(
+                ids = listOf(torrentId),
+                filesWanted = fileIndices,
+                priorityHighIds = fileIndices
+            )
+            else -> throw IllegalArgumentException("Invalid priority value: $priority")
+        }
+        
+        Log.d(TAG, "Sending torrent-set with arguments: $args")
+        return makeRpcCall("torrent-set", args)
+    }
+
+    suspend fun startTorrents(torrentIds: List<Int>): RpcResponse<Unit> {
+        val args = TorrentActionArgs(ids = torrentIds)
+        return makeRpcCall("torrent-start", args)
+    }
+
+    suspend fun stopTorrents(torrentIds: List<Int>): RpcResponse<Unit> {
+        val args = TorrentActionArgs(ids = torrentIds)
+        return makeRpcCall("torrent-stop", args)
+    }
+
+    suspend fun removeTorrents(torrentIds: List<Int>, deleteData: Boolean): RpcResponse<Unit> {
+        val args = TorrentRemoveArgs(ids = torrentIds, deleteLocalData = deleteData)
+        return makeRpcCall("torrent-remove", args)
+    }
+
+    suspend fun addTorrent(magnetOrBase64: String): RpcResponse<Unit> {
+        val args = if (magnetOrBase64.startsWith("magnet:")) {
+            TorrentAddArgs(filename = magnetOrBase64)
+        } else {
+            TorrentAddArgs(metainfo = magnetOrBase64)
+        }
+        return makeRpcCall("torrent-add", args)
+    }
+}

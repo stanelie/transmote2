@@ -1,0 +1,128 @@
+package com.stanelie.transmote2
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.*
+import androidx.compose.runtime.* // This import is already present, but good to double check
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(navController: NavController, settingsViewModel: SettingsViewModel) {
+    val serverAddress by settingsViewModel.serverAddress.collectAsState()
+    val port by settingsViewModel.port.collectAsState()
+    val username by settingsViewModel.username.collectAsState()
+    val password by settingsViewModel.password.collectAsState()
+    val useSsl by settingsViewModel.useSsl.collectAsState()
+    val refreshFrequency by settingsViewModel.refreshFrequency.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { 
+                        settingsViewModel.saveSettings()
+                        navController.popBackStack()
+                    }) {
+                        Icon(Icons.Filled.Check, contentDescription = "Save Settings")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                )
+            )
+        },
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
+    ) { innerPadding ->
+        val scrollState = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .padding(innerPadding) // Apply Scaffold's padding as initial constraint
+                .fillMaxSize() // Fill the available space
+                .verticalScroll(scrollState) // Make the entire column scrollable
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                OutlinedTextField(
+                    value = serverAddress,
+                    onValueChange = { settingsViewModel.updateServerAddress(it) },
+                    label = { Text("Server Address") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(autoCorrect = false)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = port,
+                    onValueChange = { settingsViewModel.updatePort(it) },
+                    label = { Text("Port") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, autoCorrect = false),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { settingsViewModel.updateUsername(it) },
+                    label = { Text("Username") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(autoCorrect = false)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { settingsViewModel.updatePassword(it) },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrect = false)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Use SSL")
+                    Switch(
+                        checked = useSsl,
+                        onCheckedChange = { settingsViewModel.updateUseSsl(it) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = refreshFrequency,
+                    onValueChange = { settingsViewModel.updateRefreshFrequency(it) },
+                    label = { Text("Refresh Frequency (seconds)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, autoCorrect = false),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            // Add a spacer at the bottom that is the size of the keyboard
+            Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.ime))
+        }
+    }
+}
