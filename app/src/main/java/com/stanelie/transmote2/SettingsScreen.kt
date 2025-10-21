@@ -8,7 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
-import androidx.compose.runtime.* // This import is already present, but good to double check
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,6 +25,8 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
     val password by settingsViewModel.password.collectAsState()
     val useSsl by settingsViewModel.useSsl.collectAsState()
     val refreshFrequency by settingsViewModel.refreshFrequency.collectAsState()
+    val rssFeedUrl by settingsViewModel.rssFeedUrl.collectAsState()
+    val webDownloadUrl by settingsViewModel.webDownloadUrl.collectAsState()
 
     Scaffold(
         topBar = {
@@ -36,7 +38,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                     }
                 },
                 actions = {
-                    IconButton(onClick = { 
+                    IconButton(onClick = {
                         settingsViewModel.saveSettings()
                         navController.popBackStack()
                     }) {
@@ -51,12 +53,11 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
         },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
     ) { innerPadding ->
-        val scrollState = rememberScrollState()
         Column(
             modifier = Modifier
-                .padding(innerPadding) // Apply Scaffold's padding as initial constraint
-                .fillMaxSize() // Fill the available space
-                .verticalScroll(scrollState) // Make the entire column scrollable
+                .padding(innerPadding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
             Column(
                 modifier = Modifier
@@ -120,8 +121,25 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, autoCorrect = false),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = rssFeedUrl,
+                    onValueChange = { settingsViewModel.updateRssFeedUrl(it) },
+                    label = { Text("RSS Feed URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(autoCorrect = false)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = webDownloadUrl,
+                    onValueChange = { settingsViewModel.updateWebDownloadUrl(it) },
+                    label = { Text("Web Download URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(autoCorrect = false)
+                )
             }
-            // Add a spacer at the bottom that is the size of the keyboard
             Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.ime))
         }
     }

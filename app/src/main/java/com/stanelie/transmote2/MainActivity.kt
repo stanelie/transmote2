@@ -1,21 +1,18 @@
 package com.stanelie.transmote2
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,7 +30,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -50,36 +46,15 @@ object Routes {
     const val MAIN_SCREEN = "main_screen"
     const val SETTINGS_SCREEN = "settings_screen"
     const val SEARCH_SCREEN = "search_screen"
+    const val RSS_SCREEN = "rss_screen"
     const val TORRENT_DETAIL_SCREEN = "torrent_detail_screen/{torrentId}"
     fun torrentDetailRoute(torrentId: Int) = "torrent_detail_screen/$torrentId"
 }
 
 class MainActivity : ComponentActivity() {
-    
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            // Permission is granted. You can now show notifications.
-        } else {
-            // Explain to the user that the feature is unavailable because the
-            // features requires a permission that the user has denied.
-            Toast.makeText(this, "Notifications will not be shown.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun askNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-    
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        askNotificationPermission()
         enableEdgeToEdge()
         setContent {
             Transmote2Theme {
@@ -89,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.provideFactory(preferencesDataStore))
                 val mainViewModel: MainViewModel = viewModel(factory = MainViewModel.provideFactory(preferencesDataStore))
                 val searchViewModel: SearchViewModel = viewModel()
+                val rssViewModel: RssViewModel = viewModel(factory = RssViewModel.provideFactory(preferencesDataStore, RssReader(), context.applicationContext))
 
                 val connectionStatus by mainViewModel.connectionStatus.collectAsState()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -101,12 +77,14 @@ class MainActivity : ComponentActivity() {
                             title = { 
                                 if (currentRoute == Routes.SEARCH_SCREEN) {
                                     Text("Search 1337x.to")
+                                } else if (currentRoute == Routes.RSS_SCREEN) {
+                                    Text("RSS Feed")
                                 } else {
-                                    Text(connectionStatus, style = MaterialTheme.typography.titleMedium) // Display only the connection status
+                                    Text(connectionStatus, style = MaterialTheme.typography.titleMedium)
                                 }
                             },
                             navigationIcon = {
-                                if (currentRoute == Routes.SEARCH_SCREEN) {
+                                if (currentRoute == Routes.SEARCH_SCREEN || currentRoute == Routes.RSS_SCREEN) {
                                     IconButton(onClick = { navController.popBackStack() }) {
                                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                     }
@@ -118,6 +96,9 @@ class MainActivity : ComponentActivity() {
                             ),
                             actions = {
                                 if (currentRoute == Routes.MAIN_SCREEN) {
+                                    IconButton(onClick = { navController.navigate(Routes.RSS_SCREEN) }) {
+                                        Icon(Icons.Filled.RssFeed, contentDescription = "RSS Feed")
+                                    }
                                     IconButton(onClick = { navController.navigate(Routes.SEARCH_SCREEN) }) {
                                         Icon(Icons.Filled.Search, contentDescription = "Search")
                                     }
@@ -140,6 +121,15 @@ class MainActivity : ComponentActivity() {
                             SearchScreen(
                                 navController = navController,
                                 searchViewModel = searchViewModel,
+                                onAddTorrent = { magnetLink ->
+                                    mainViewModel.addTorrent(magnetLink)
+                                }
+                            )
+                        }
+                        composable(Routes.RSS_SCREEN) {
+                            RssScreen(
+                                navController = navController,
+                                rssViewModel = rssViewModel,
                                 onAddTorrent = { magnetLink ->
                                     mainViewModel.addTorrent(magnetLink)
                                 }

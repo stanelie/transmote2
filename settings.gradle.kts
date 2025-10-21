@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "transmote2"
 include(":app")
- 

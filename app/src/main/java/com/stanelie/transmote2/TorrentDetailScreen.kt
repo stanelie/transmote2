@@ -1,9 +1,10 @@
 package com.stanelie.transmote2
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,25 +14,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material3.* // Import all Material3 components
-import androidx.compose.runtime.* // Import all Compose runtime components
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.stanelie.transmote2.ui.theme.Transmote2Theme
-import com.stanelie.transmote2.formatBytes // Import from TorrentUtils
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 // Represents a node in the file/folder tree
 data class FileTreeNode(
@@ -88,6 +86,8 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
     val isSelectionModeActive = selectedFileIndices.isNotEmpty()
     val expandedNodePaths = remember { mutableStateOf(emptySet<String>()) }
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -126,6 +126,24 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
                         TextButton(onClick = { torrentDetailViewModel.setPriorityForSelectedFiles(-1) }) { Text("Unwanted") }
                         TextButton(onClick = { torrentDetailViewModel.setPriorityForSelectedFiles(0) }) { Text("Normal") }
                         TextButton(onClick = { torrentDetailViewModel.setPriorityForSelectedFiles(1) }) { Text("High") }
+                        // Download button is only enabled when exactly one file is selected
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val selectedFile = torrentFiles.getOrNull(selectedFileIndices.first())
+                                    if (selectedFile != null) {
+                                        val url = torrentDetailViewModel.createDownloadUrl(selectedFile.name)
+                                        if (url != null) {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                            context.startActivity(intent)
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = selectedFileIndices.size == 1
+                        ) {
+                            Text("Download file")
+                        }
                     }
                 }
             }
@@ -240,7 +258,7 @@ fun FileTreeItem(
                 Spacer(modifier = Modifier.width(8.dp))
                 node.files?.firstOrNull()?.let { file ->
                     Text(
-                        text = "${formatBytes(file.bytesCompleted)} / ${formatBytes(file.length)} (P: ${node.priority})",
+                        text = "${formatBytes(file.bytesCompleted)} / ${formatBytes(file.length)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
@@ -265,28 +283,5 @@ fun FileTreeItem(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TorrentDetailScreenPreview() {
-    Transmote2Theme {
-        val navController = rememberNavController()
-
-        val mockPreferencesDataStore = object : Any() {
-            val settingsFlow: Flow<ConnectionSettings> = MutableStateFlow(ConnectionSettings())
-        }
-
-        val mockViewModelFactory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return TorrentDetailViewModel(torrentId = 1, preferencesDataStore = mockPreferencesDataStore as PreferencesDataStore) as T
-            }
-        }
-
-        val mockViewModel: TorrentDetailViewModel = viewModel(factory = mockViewModelFactory)
-
-        TorrentDetailScreen(navController = navController, torrentDetailViewModel = mockViewModel)
     }
 }

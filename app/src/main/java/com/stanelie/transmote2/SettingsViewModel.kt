@@ -28,6 +28,12 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
     private val _refreshFrequency = MutableStateFlow("")
     val refreshFrequency: StateFlow<String> = _refreshFrequency.asStateFlow()
 
+    private val _rssFeedUrl = MutableStateFlow("")
+    val rssFeedUrl: StateFlow<String> = _rssFeedUrl.asStateFlow()
+
+    private val _webDownloadUrl = MutableStateFlow("")
+    val webDownloadUrl: StateFlow<String> = _webDownloadUrl.asStateFlow()
+
     init {
         loadSettings()
     }
@@ -41,33 +47,20 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
                 _password.value = it.password
                 _useSsl.value = it.useSsl
                 _refreshFrequency.value = it.refreshFrequency.toString()
+                _rssFeedUrl.value = it.rssFeedUrl
+                _webDownloadUrl.value = it.webDownloadUrl
             }
         }
     }
 
-    fun updateServerAddress(address: String) {
-        _serverAddress.value = address
-    }
-
-    fun updatePort(p: String) {
-        _port.value = p
-    }
-
-    fun updateUsername(user: String) {
-        _username.value = user
-    }
-
-    fun updatePassword(pass: String) {
-        _password.value = pass
-    }
-
-    fun updateUseSsl(ssl: Boolean) {
-        _useSsl.value = ssl
-    }
-
-    fun updateRefreshFrequency(frequency: String) {
-        _refreshFrequency.value = frequency
-    }
+    fun updateServerAddress(address: String) { _serverAddress.value = address }
+    fun updatePort(p: String) { _port.value = p }
+    fun updateUsername(user: String) { _username.value = user }
+    fun updatePassword(pass: String) { _password.value = pass }
+    fun updateUseSsl(ssl: Boolean) { _useSsl.value = ssl }
+    fun updateRefreshFrequency(frequency: String) { _refreshFrequency.value = frequency }
+    fun updateRssFeedUrl(url: String) { _rssFeedUrl.value = url }
+    fun updateWebDownloadUrl(url: String) { _webDownloadUrl.value = url }
 
     fun saveSettings() {
         viewModelScope.launch {
@@ -77,7 +70,9 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
                 username = _username.value,
                 password = _password.value,
                 useSsl = _useSsl.value,
-                refreshFrequency = _refreshFrequency.value.toIntOrNull() ?: 30 // Default to 30 seconds if invalid
+                refreshFrequency = _refreshFrequency.value.toIntOrNull() ?: 30,
+                rssFeedUrl = _rssFeedUrl.value,
+                webDownloadUrl = _webDownloadUrl.value
             )
         }
     }

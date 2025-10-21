@@ -6,8 +6,9 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.net.URLEncoder
 
 class TorrentDetailViewModel(private val torrentId: Int, private val preferencesDataStore: PreferencesDataStore) : ViewModel() {
 
@@ -27,12 +28,11 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
 
     init {
         viewModelScope.launch {
-            preferencesDataStore.settingsFlow.collectLatest { settings ->
-                // Re-initialize client if settings change
-                transmissionRpcClient = TransmissionRpcClient(settings)
-                if (torrentId != -1) {
-                    fetchTorrentFiles()
-                }
+            // Initialize the client once with the current settings
+            val settings = preferencesDataStore.settingsFlow.first()
+            transmissionRpcClient = TransmissionRpcClient(settings)
+            if (torrentId != -1) {
+                fetchTorrentFiles()
             }
         }
     }
@@ -42,12 +42,11 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                val client = transmissionRpcClient
-                if (client != null) {
-                    val files = client.getTorrentFiles(torrentId)
+                val files = transmissionRpcClient?.getTorrentFiles(torrentId)
+                if (files != null) {
                     _torrentFiles.value = files
                 } else {
-                    _errorMessage.value = "RPC Client not initialized. Check settings."
+                    _errorMessage.value = "Error fetching files: RPC Client might be null or call failed."
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error fetching files: ${e.message}"
@@ -78,24 +77,18 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                val client = transmissionRpcClient
-                if (client != null) {
-                    client.setFilePriorities(torrentId, _selectedFileIndices.value.toList(), priority)
+                transmissionRpcClient?.setFilePriorities(torrentId, _selectedFileIndices.value.toList(), priority)
 
-                    // Optimistic UI update:
-                    val updatedFiles = _torrentFiles.value.mapIndexed { index, file ->
-                        if (_selectedFileIndices.value.contains(index)) {
-                            file.copy(priority = priority)
-                        } else {
-                            file
-                        }
+                // Optimistic UI update
+                val updatedFiles = _torrentFiles.value.mapIndexed { index, file ->
+                    if (_selectedFileIndices.value.contains(index)) {
+                        file.copy(priority = priority)
+                    } else {
+                        file
                     }
-                    _torrentFiles.value = updatedFiles
-
-                    clearSelection() // Clear selection after action
-                } else {
-                    _errorMessage.value = "RPC Client not initialized. Check settings."
                 }
+                _torrentFiles.value = updatedFiles
+                clearSelection()
             } catch (e: Exception) {
                 _errorMessage.value = "Error setting file priority: ${e.message}"
             } finally {
@@ -103,6 +96,26 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
             }
         }
     }
+
+    suspend fun createDownloadUrl(fileName: String): String? {
+        val settings = preferencesDataStore.settingsFlow.first()
+        val baseUrl = settings.webDownloadUrl
+        if (baseUrl.isBlank()) {
+            _errorMessage.value = "Web Download URL is not configured in settings."
+            return null
+        }
+        // Ensure base URL ends with a slash
+        val correctedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        
+        // Encode each path segment individually
+        val encodedPath = fileName.split('/')
+            .joinToString("/") { part ->
+                URLEncoder.encode(part, "UTF-8").replace("+", "%20")
+            }
+            
+        return correctedBaseUrl + encodedPath
+    }
+
 
     companion object {
         fun provideFactory(torrentId: Int, preferencesDataStore: PreferencesDataStore): ViewModelProvider.Factory = object : ViewModelProvider.Factory {

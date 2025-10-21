@@ -32,14 +32,20 @@ class TorrentCheckWorker(appContext: Context, workerParams: WorkerParameters) : 
             }
 
             val client = TransmissionRpcClient(settings)
-            val torrents = client.getTorrents()
-            
-            val completedTorrents = torrents.filter { it.percentDone >= 1.0 && it.isFinished }
-            
+            val allServerTorrents = client.getTorrents()
+            val allServerTorrentIds = allServerTorrents.map { it.id.toString() }.toSet()
+
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val notifiedIds = prefs.getStringSet(NOTIFIED_IDS_KEY, emptySet()) ?: emptySet()
+            val previouslyNotifiedIds = prefs.getStringSet(NOTIFIED_IDS_KEY, emptySet()) ?: emptySet()
             
-            val newCompletedTorrents = completedTorrents.filter { it.id.toString() !in notifiedIds }
+            // **New Logic**: Sync the notified list with the server state.
+            // Keep only the IDs that are still on the server.
+            val syncedNotifiedIds = previouslyNotifiedIds.intersect(allServerTorrentIds)
+            
+            val completedTorrents = allServerTorrents.filter { it.percentDone >= 1.0 && it.isFinished }
+            
+            // Find torrents that are complete but not in our synced list of notified torrents.
+            val newCompletedTorrents = completedTorrents.filter { it.id.toString() !in syncedNotifiedIds }
 
             if (newCompletedTorrents.isNotEmpty()) {
                 Log.d(TAG, "Found ${newCompletedTorrents.size} new completed torrents.")
@@ -47,12 +53,18 @@ class TorrentCheckWorker(appContext: Context, workerParams: WorkerParameters) : 
                     notificationHelper.showCompletionNotification(torrent.name, torrent.id)
                 }
 
-                // Update the set of notified IDs
-                val updatedNotifiedIds = notifiedIds.toMutableSet()
+                // Update the set of notified IDs with the newly completed ones.
+                val updatedNotifiedIds = syncedNotifiedIds.toMutableSet()
                 newCompletedTorrents.forEach { updatedNotifiedIds.add(it.id.toString()) }
                 prefs.edit().putStringSet(NOTIFIED_IDS_KEY, updatedNotifiedIds).apply()
+                Log.d(TAG, "Updated notified IDs: $updatedNotifiedIds")
             } else {
                 Log.d(TAG, "No new completed torrents found.")
+                // Also re-save the synced list in case items were removed
+                if (syncedNotifiedIds.size != previouslyNotifiedIds.size) {
+                    prefs.edit().putStringSet(NOTIFIED_IDS_KEY, syncedNotifiedIds).apply()
+                    Log.d(TAG, "Cleaned up notified IDs list: $syncedNotifiedIds")
+                }
             }
 
             Result.success()
