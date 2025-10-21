@@ -22,6 +22,9 @@ class RssViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -29,41 +32,54 @@ class RssViewModel(
     val seenItemGuids: StateFlow<Set<String>> = _seenItemGuids.asStateFlow()
 
     private val sharedPreferences = appContext.getSharedPreferences("rss_prefs", Context.MODE_PRIVATE)
+    internal var initialGuids: Set<String> = emptySet() // Changed from private to internal
 
     init {
         loadSeenItems()
-        fetchRssFeed()
+        // Removed fetchRssFeed() from init to avoid fetching on app start
     }
 
     private fun loadSeenItems() {
-        _seenItemGuids.value = sharedPreferences.getStringSet("seen_guids", emptySet()) ?: emptySet()
+        val guids = sharedPreferences.getStringSet("seen_guids", emptySet()) ?: emptySet()
+        _seenItemGuids.value = guids
+        initialGuids = guids // Store the initial "seen" list
     }
 
-    fun fetchRssFeed() {
+    fun refreshFeed() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isRefreshing.value = true
             _error.value = null
             try {
                 val rssUrl = preferencesDataStore.settingsFlow.first().rssFeedUrl
                 if (rssUrl.isNotBlank()) {
                     val items = rssReader.fetchRssItems(rssUrl)
+                    // New items are those not in the initial "seen" list
+                    val newItemsGuids = items.map { it.guid }.toSet() - initialGuids
+                    val currentSeenGuids = _seenItemGuids.value
+                    
                     _rssItems.value = items
-                    // After fetching, mark all current items as seen
+                    
+                    // Mark all current items as seen for the *next* visit
                     markAllAsSeen(items.map { it.guid })
+                    
+                    // But for this view, restore the original "seen" status
+                    // so that only newly fetched items appear as "new"
+                    _seenItemGuids.value = currentSeenGuids + newItemsGuids
+
                 } else {
                     _error.value = "RSS Feed URL is not configured in settings."
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to fetch RSS feed: ${e.message}"
             } finally {
-                _isLoading.value = false
+                _isRefreshing.value = false
             }
         }
     }
 
     private fun markAllAsSeen(guids: List<String>) {
-        val newSeenGuids = _seenItemGuids.value + guids
-        _seenItemGuids.value = newSeenGuids
+        val allGuids = sharedPreferences.getStringSet("seen_guids", emptySet()) ?: emptySet()
+        val newSeenGuids = allGuids + guids
         sharedPreferences.edit().putStringSet("seen_guids", newSeenGuids).apply()
     }
 

@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun RssScreen(
     navController: NavController,
@@ -20,53 +25,72 @@ fun RssScreen(
     onAddTorrent: (String) -> Unit
 ) {
     val rssItems by rssViewModel.rssItems.collectAsState()
-    val isLoading by rssViewModel.isLoading.collectAsState()
+    val isRefreshing by rssViewModel.isRefreshing.collectAsState()
     val error by rssViewModel.error.collectAsState()
     val seenItemGuids by rssViewModel.seenItemGuids.collectAsState()
 
     val listState = rememberLazyListState()
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { rssViewModel.refreshFeed() }
+    )
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-        }
+    // Trigger the initial refresh when the screen is first composed
+    LaunchedEffect(Unit) {
+        rssViewModel.refreshFeed()
+    }
 
-        error?.let {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
+        if (error != null) {
             Text(
-                text = it,
+                text = error!!,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
             )
         }
 
-        if (!isLoading && error == null) {
+        if (rssItems.isNotEmpty()) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .simpleVerticalScrollbar(listState)
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp)
             ) {
                 items(rssItems) { item ->
-                    val isSeen = seenItemGuids.contains(item.guid)
+                    // An item is "new" if its GUID was not in the set of seen items
+                    // that was loaded when the ViewModel was created.
+                    val isNew = !rssViewModel.initialGuids.contains(item.guid)
                     RssItemView(
                         item = item,
-                        isSeen = isSeen,
+                        isNew = isNew,
                         onClick = {
                             onAddTorrent(item.link)
-                            // Optionally, pop back or show a toast
                             navController.popBackStack()
                         }
                     )
                 }
             }
         }
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
 @Composable
-fun RssItemView(item: RssItem, isSeen: Boolean, onClick: () -> Unit) {
-    val contentColor = if (isSeen) Color.Gray else MaterialTheme.colorScheme.onSurface
+fun RssItemView(item: RssItem, isNew: Boolean, onClick: () -> Unit) {
+    // New items are rendered with the default text color, old items are greyed out.
+    val contentColor = if (isNew) MaterialTheme.colorScheme.onSurface else Color.Gray
 
     Card(
         modifier = Modifier
