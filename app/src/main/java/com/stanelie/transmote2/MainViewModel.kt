@@ -73,7 +73,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             val client = transmissionRpcClient
             if (client != null && currentSettings != null) {
                 val fetchedTorrents = client.getTorrents().sortedByDescending { it.addedDate }
-                _torrents.value = fetchedTorrents
+                val existing = _torrents.value.associateBy { it.id }
+                _torrents.value = fetchedTorrents.map { new -> existing[new.id]?.takeIf { it == new } ?: new }
                 _connectionStatus.value = "Connected to ${currentSettings!!.serverAddress}:${currentSettings!!.port}"
             } else {
                 _connectionStatus.value = "Not configured"
@@ -116,6 +117,17 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             try {
                 transmissionRpcClient?.removeTorrents(listOf(torrentId), deleteData)
                 performFetch() // Refresh list after action
+            } catch (e: Exception) {
+                _connectionStatus.value = "Error: ${e.message}"
+            }
+        }
+    }
+
+    fun renameTorrent(torrentId: Int, currentName: String, newName: String) {
+        viewModelScope.launch {
+            try {
+                transmissionRpcClient?.renameTorrent(torrentId, currentName, newName)
+                performFetch()
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }

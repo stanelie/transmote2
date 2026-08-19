@@ -1,75 +1,51 @@
 package com.stanelie.transmote2
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.flow.first
 
-class TorrentCheckWorker(appContext: Context, workerParams: WorkerParameters) : CoroutineWorker(appContext, workerParams) {
+class TorrentCheckWorker(appContext: Context, workerParams: WorkerParameters) :
+    CoroutineWorker(appContext, workerParams) {
 
     companion object {
-        const val WORKER_NAME = "TorrentCheckWorker"
-        private const val PREFS_NAME = "transmote2_prefs"
-        private const val NOTIFIED_IDS_KEY = "notified_torrent_ids"
+        const val WORKER_NAME = "RssCheckWorker"
     }
 
     private val TAG = "TorrentCheckWorker"
-    private val notificationHelper = NotificationHelper(applicationContext)
 
     override suspend fun doWork(): Result {
-        Log.d(TAG, "Worker is running...")
+        Log.d(TAG, "RSS worker running.")
+        val notificationHelper = NotificationHelper(applicationContext)
         notificationHelper.createNotificationChannel()
 
         return try {
-            val preferencesDataStore = PreferencesDataStore(applicationContext)
-            val settings = preferencesDataStore.settingsFlow.first()
-
-            if (settings.serverAddress.isBlank() || settings.port.isBlank()) {
-                Log.d(TAG, "Worker exiting: Server not configured.")
+            val settings = PreferencesDataStore(applicationContext).settingsFlow.first()
+            if (settings.rssFeedUrl.isBlank()) {
+                Log.d(TAG, "RSS URL not configured, skipping.")
                 return Result.success()
             }
 
-            val client = TransmissionRpcClient(settings)
-            val allServerTorrents = client.getTorrents()
-            val allServerTorrentIds = allServerTorrents.map { it.id.toString() }.toSet()
+            val rssPrefs = applicationContext.getSharedPreferences("rss_prefs", Context.MODE_PRIVATE)
+            val seenGuids = rssPrefs.getStringSet("seen_guids", emptySet()) ?: emptySet()
 
-            val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val previouslyNotifiedIds = prefs.getStringSet(NOTIFIED_IDS_KEY, emptySet()) ?: emptySet()
-            
-            // **New Logic**: Sync the notified list with the server state.
-            // Keep only the IDs that are still on the server.
-            val syncedNotifiedIds = previouslyNotifiedIds.intersect(allServerTorrentIds)
-            
-            val completedTorrents = allServerTorrents.filter { it.percentDone >= 1.0 && it.isFinished }
-            
-            // Find torrents that are complete but not in our synced list of notified torrents.
-            val newCompletedTorrents = completedTorrents.filter { it.id.toString() !in syncedNotifiedIds }
+            val items = RssReader().fetchRssItems(settings.rssFeedUrl)
+            val newItems = items.filter { it.guid !in seenGuids }
 
-            if (newCompletedTorrents.isNotEmpty()) {
-                Log.d(TAG, "Found ${newCompletedTorrents.size} new completed torrents.")
-                newCompletedTorrents.forEach { torrent ->
-                    notificationHelper.showCompletionNotification(torrent.name, torrent.id)
-                }
-
-                // Update the set of notified IDs with the newly completed ones.
-                val updatedNotifiedIds = syncedNotifiedIds.toMutableSet()
-                newCompletedTorrents.forEach { updatedNotifiedIds.add(it.id.toString()) }
-                prefs.edit().putStringSet(NOTIFIED_IDS_KEY, updatedNotifiedIds).apply()
-                Log.d(TAG, "Updated notified IDs: $updatedNotifiedIds")
+            if (newItems.isNotEmpty()) {
+                Log.d(TAG, "Found ${newItems.size} new RSS items.")
+                notificationHelper.showRssNotification(newItems)
+                val updatedGuids = seenGuids.toMutableSet()
+                    .also { it.addAll(items.map { i -> i.guid }) }
+                rssPrefs.edit().putStringSet("seen_guids", updatedGuids).apply()
             } else {
-                Log.d(TAG, "No new completed torrents found.")
-                // Also re-save the synced list in case items were removed
-                if (syncedNotifiedIds.size != previouslyNotifiedIds.size) {
-                    prefs.edit().putStringSet(NOTIFIED_IDS_KEY, syncedNotifiedIds).apply()
-                    Log.d(TAG, "Cleaned up notified IDs list: $syncedNotifiedIds")
-                }
+                Log.d(TAG, "No new RSS items.")
             }
 
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Worker failed", e)
+            Log.e(TAG, "RSS worker failed", e)
             Result.failure()
         }
     }

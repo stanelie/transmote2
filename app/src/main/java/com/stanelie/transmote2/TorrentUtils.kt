@@ -20,11 +20,12 @@ fun getTorrentStatusString(status: Int): String {
     }
 }
 
-fun formatBytes(bytes: Long): String {
+fun formatBytes(bytes: Long, showDecimals: Boolean = true): String {
     if (bytes <= 0) return "0 B"
     val units = listOf("B", "KB", "MB", "GB", "TB")
     val digitGroups = (log10(bytes.toDouble()) / log10(1024.0)).toInt()
-    return DecimalFormat("#,##0.#").format(bytes / 1024.0.pow(digitGroups)) + " " + units[digitGroups]
+    val pattern = if (showDecimals) "#,##0.#" else "#,##0"
+    return DecimalFormat(pattern).format(bytes / 1024.0.pow(digitGroups)) + " " + units[digitGroups]
 }
 
 fun formatEta(eta: Long): String {

@@ -53,22 +53,31 @@ class NotificationHelper(private val context: Context) {
         notificationManager.notify(torrentId, builder.build())
     }
 
-    fun showRssNotification(newItem: RssItem) {
+    fun showRssNotification(newItems: List<RssItem>) {
+        if (newItems.isEmpty()) return
         val intent = Intent(context, MainActivity::class.java).apply {
             action = "ACTION_SHOW_RSS"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
+        val title = if (newItems.size == 1) "New RSS item" else "${newItems.size} new RSS items"
         val builder = NotificationCompat.Builder(context, RSS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("New RSS Item Found")
-            .setContentText(newItem.title)
+            .setContentTitle(title)
+            .setContentText(newItems.first().title)
+            .setNumber(newItems.size)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
-        // Use the item's GUID to generate a unique ID, ensuring each new item gets its own notification
-        notificationManager.notify(newItem.guid.hashCode(), builder.build())
+        if (newItems.size > 1) {
+            val style = NotificationCompat.InboxStyle().setBigContentTitle(title)
+            newItems.take(5).forEach { style.addLine(it.title) }
+            if (newItems.size > 5) style.setSummaryText("+${newItems.size - 5} more")
+            builder.setStyle(style)
+        }
+
+        notificationManager.notify(RSS_NOTIFICATION_ID, builder.build())
     }
 }

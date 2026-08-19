@@ -27,6 +27,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
     val refreshFrequency by settingsViewModel.refreshFrequency.collectAsState()
     val rssFeedUrl by settingsViewModel.rssFeedUrl.collectAsState()
     val webDownloadUrl by settingsViewModel.webDownloadUrl.collectAsState()
+    val rssPollingIntervalHours by settingsViewModel.rssPollingIntervalHours.collectAsState()
 
     Scaffold(
         topBar = {
@@ -47,7 +48,9 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             )
         },
@@ -138,6 +141,15 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(autoCorrect = false)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = rssPollingIntervalHours,
+                    onValueChange = { settingsViewModel.updateRssPollingIntervalHours(it) },
+                    label = { Text("RSS polling interval (hours)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, autoCorrect = false),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
             Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.ime))

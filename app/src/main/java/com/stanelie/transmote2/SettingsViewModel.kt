@@ -1,14 +1,22 @@
 package com.stanelie.transmote2
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
-class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) : ViewModel() {
+class SettingsViewModel(
+    private val preferencesDataStore: PreferencesDataStore,
+    private val appContext: Context
+) : ViewModel() {
 
     private val _serverAddress = MutableStateFlow("")
     val serverAddress: StateFlow<String> = _serverAddress.asStateFlow()
@@ -34,6 +42,9 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
     private val _webDownloadUrl = MutableStateFlow("")
     val webDownloadUrl: StateFlow<String> = _webDownloadUrl.asStateFlow()
 
+    private val _rssPollingIntervalHours = MutableStateFlow("")
+    val rssPollingIntervalHours: StateFlow<String> = _rssPollingIntervalHours.asStateFlow()
+
     init {
         loadSettings()
     }
@@ -49,6 +60,7 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
                 _refreshFrequency.value = it.refreshFrequency.toString()
                 _rssFeedUrl.value = it.rssFeedUrl
                 _webDownloadUrl.value = it.webDownloadUrl
+                _rssPollingIntervalHours.value = it.rssPollingIntervalHours.toString()
             }
         }
     }
@@ -61,9 +73,11 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
     fun updateRefreshFrequency(frequency: String) { _refreshFrequency.value = frequency }
     fun updateRssFeedUrl(url: String) { _rssFeedUrl.value = url }
     fun updateWebDownloadUrl(url: String) { _webDownloadUrl.value = url }
+    fun updateRssPollingIntervalHours(hours: String) { _rssPollingIntervalHours.value = hours }
 
     fun saveSettings() {
         viewModelScope.launch {
+            val intervalHours = _rssPollingIntervalHours.value.toIntOrNull() ?: 6
             preferencesDataStore.saveSettings(
                 serverAddress = _serverAddress.value,
                 port = _port.value,
@@ -72,16 +86,37 @@ class SettingsViewModel(private val preferencesDataStore: PreferencesDataStore) 
                 useSsl = _useSsl.value,
                 refreshFrequency = _refreshFrequency.value.toIntOrNull() ?: 30,
                 rssFeedUrl = _rssFeedUrl.value,
-                webDownloadUrl = _webDownloadUrl.value
+                webDownloadUrl = _webDownloadUrl.value,
+                rssPollingIntervalHours = intervalHours
             )
+            scheduleRssWork(appContext, intervalHours)
         }
     }
 
     companion object {
-        fun provideFactory(preferencesDataStore: PreferencesDataStore): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun scheduleRssWork(context: Context, intervalHours: Int) {
+            val workManager = WorkManager.getInstance(context)
+            if (intervalHours <= 0) {
+                workManager.cancelUniqueWork(TorrentCheckWorker.WORKER_NAME)
+                return
+            }
+            val request = PeriodicWorkRequestBuilder<TorrentCheckWorker>(
+                intervalHours.toLong(), TimeUnit.HOURS
+            ).build()
+            workManager.enqueueUniquePeriodicWork(
+                TorrentCheckWorker.WORKER_NAME,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                request
+            )
+        }
+
+        fun provideFactory(
+            preferencesDataStore: PreferencesDataStore,
+            appContext: Context
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return SettingsViewModel(preferencesDataStore) as T
+                return SettingsViewModel(preferencesDataStore, appContext) as T
             }
         }
     }

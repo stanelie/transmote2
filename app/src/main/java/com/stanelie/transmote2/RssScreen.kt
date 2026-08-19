@@ -72,7 +72,7 @@ fun RssScreen(
                         isNew = isNew,
                         onClick = {
                             onAddTorrent(item.link)
-                            navController.popBackStack()
+                            navController.navigate(Routes.MAIN_SCREEN)
                         }
                     )
                 }

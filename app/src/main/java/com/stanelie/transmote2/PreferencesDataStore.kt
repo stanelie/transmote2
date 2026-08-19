@@ -21,7 +21,8 @@ data class ConnectionSettings(
     val useSsl: Boolean = false,
     val refreshFrequency: Int = 30,
     val rssFeedUrl: String = "",
-    val webDownloadUrl: String = "" // Added Web Download URL
+    val webDownloadUrl: String = "",
+    val rssPollingIntervalHours: Int = 6
 )
 
 class PreferencesDataStore(private val context: Context) {
@@ -34,7 +35,8 @@ class PreferencesDataStore(private val context: Context) {
         val USE_SSL = booleanPreferencesKey("use_ssl")
         val REFRESH_FREQUENCY = intPreferencesKey("refresh_frequency")
         val RSS_FEED_URL = stringPreferencesKey("rss_feed_url")
-        val WEB_DOWNLOAD_URL = stringPreferencesKey("web_download_url") // Added key
+        val WEB_DOWNLOAD_URL = stringPreferencesKey("web_download_url")
+        val RSS_POLLING_INTERVAL_HOURS = intPreferencesKey("rss_polling_interval_hours")
     }
 
     val settingsFlow: Flow<ConnectionSettings> = context.dataStore.data
@@ -47,7 +49,8 @@ class PreferencesDataStore(private val context: Context) {
                 useSsl = preferences[PreferencesKeys.USE_SSL] ?: false,
                 refreshFrequency = preferences[PreferencesKeys.REFRESH_FREQUENCY] ?: 30,
                 rssFeedUrl = preferences[PreferencesKeys.RSS_FEED_URL] ?: "",
-                webDownloadUrl = preferences[PreferencesKeys.WEB_DOWNLOAD_URL] ?: ""
+                webDownloadUrl = preferences[PreferencesKeys.WEB_DOWNLOAD_URL] ?: "",
+                rssPollingIntervalHours = preferences[PreferencesKeys.RSS_POLLING_INTERVAL_HOURS] ?: 6
             )
         }
 
@@ -59,7 +62,8 @@ class PreferencesDataStore(private val context: Context) {
         useSsl: Boolean,
         refreshFrequency: Int,
         rssFeedUrl: String,
-        webDownloadUrl: String
+        webDownloadUrl: String,
+        rssPollingIntervalHours: Int
     ) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.SERVER_ADDRESS] = serverAddress
@@ -70,6 +74,7 @@ class PreferencesDataStore(private val context: Context) {
             preferences[PreferencesKeys.REFRESH_FREQUENCY] = refreshFrequency
             preferences[PreferencesKeys.RSS_FEED_URL] = rssFeedUrl
             preferences[PreferencesKeys.WEB_DOWNLOAD_URL] = webDownloadUrl
+            preferences[PreferencesKeys.RSS_POLLING_INTERVAL_HOURS] = rssPollingIntervalHours
         }
     }
 }

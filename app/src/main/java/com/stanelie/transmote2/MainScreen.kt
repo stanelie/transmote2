@@ -60,7 +60,7 @@ fun MainScreen(navController: NavController, mainViewModel: MainViewModel) {
                             .fillMaxSize()
                             .simpleVerticalScrollbar(listState)
                     ) {
-                        items(torrents) {
+                        items(torrents, key = { it.id }) {
                             TorrentItem(
                                 torrentInfo = it,
                                 onTorrentClick = { torrentId ->
@@ -69,6 +69,8 @@ fun MainScreen(navController: NavController, mainViewModel: MainViewModel) {
                                 onResumeClick = { mainViewModel.startTorrent(it.id) },
                                 onPauseClick = { mainViewModel.stopTorrent(it.id) },
                                 onRemoveClick = { mainViewModel.removeTorrent(it.id, true) },
+                                onRemoveTorrentClick = { mainViewModel.removeTorrent(it.id, false) },
+                                onRenameClick = { newName -> mainViewModel.renameTorrent(it.id, it.name, newName) },
                                 onMenuVisibilityChanged = { mainViewModel.onMenuVisibilityChanged(it) }
                             )
                         }
@@ -92,10 +94,14 @@ fun TorrentItem(
     onResumeClick: () -> Unit,
     onPauseClick: () -> Unit,
     onRemoveClick: () -> Unit,
+    onRemoveTorrentClick: () -> Unit,
+    onRenameClick: (String) -> Unit,
     onMenuVisibilityChanged: (Boolean) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameText by remember(torrentInfo.name) { mutableStateOf(torrentInfo.name) }
 
     val cardColors = when (torrentInfo.status) {
         0 -> CardDefaults.cardColors( // Stopped
@@ -181,6 +187,15 @@ fun TorrentItem(
             }
         ) {
             DropdownMenuItem(
+                text = { Text("Rename") },
+                onClick = {
+                    renameText = torrentInfo.name
+                    showRenameDialog = true
+                    showMenu = false
+                    onMenuVisibilityChanged(false)
+                }
+            )
+            DropdownMenuItem(
                 text = { Text("Resume") },
                 onClick = {
                     onResumeClick()
@@ -192,6 +207,14 @@ fun TorrentItem(
                 text = { Text("Pause") },
                 onClick = {
                     onPauseClick()
+                    showMenu = false
+                    onMenuVisibilityChanged(false)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Remove torrent") },
+                onClick = {
+                    onRemoveTorrentClick()
                     showMenu = false
                     onMenuVisibilityChanged(false)
                 }
@@ -222,6 +245,36 @@ fun TorrentItem(
                 },
                 dismissButton = {
                     Button(onClick = { showDeleteConfirmation = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+        if (showRenameDialog) {
+            AlertDialog(
+                onDismissRequest = { showRenameDialog = false },
+                title = { Text("Rename torrent") },
+                text = {
+                    OutlinedTextField(
+                        value = renameText,
+                        onValueChange = { renameText = it },
+                        singleLine = true,
+                        label = { Text("Name") }
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onRenameClick(renameText)
+                            showRenameDialog = false
+                        },
+                        enabled = renameText.isNotBlank() && renameText != torrentInfo.name
+                    ) {
+                        Text("Rename")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = { showRenameDialog = false }) {
                         Text("Cancel")
                     }
                 }
@@ -258,6 +311,8 @@ fun TorrentItemPreview() {
             onResumeClick = {},
             onPauseClick = {},
             onRemoveClick = {},
+            onRemoveTorrentClick = {},
+            onRenameClick = {},
             onMenuVisibilityChanged = {}
         )
     }

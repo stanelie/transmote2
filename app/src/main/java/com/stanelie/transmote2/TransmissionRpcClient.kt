@@ -115,6 +115,13 @@ data class TorrentAddArgs(
     val metainfo: String? = null
 )
 
+@Serializable
+data class TorrentRenameArgs(
+    val ids: List<Int>,
+    val path: String,
+    val name: String
+)
+
 class TransmissionRpcClient(private val settings: ConnectionSettings) {
 
     private val client = HttpClient(OkHttp) {
@@ -243,6 +250,11 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
     suspend fun removeTorrents(torrentIds: List<Int>, deleteData: Boolean): RpcResponse<Unit> {
         val args = TorrentRemoveArgs(ids = torrentIds, deleteLocalData = deleteData)
         return makeRpcCall("torrent-remove", args)
+    }
+
+    suspend fun renameTorrent(torrentId: Int, currentName: String, newName: String): RpcResponse<Unit> {
+        val args = TorrentRenameArgs(ids = listOf(torrentId), path = currentName, name = newName)
+        return makeRpcCall("torrent-rename-path", args)
     }
 
     suspend fun addTorrent(magnetOrBase64: String): RpcResponse<Unit> {

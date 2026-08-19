@@ -68,6 +68,10 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
         _selectedFileIndices.value = emptySet()
     }
 
+    fun selectAll() {
+        _selectedFileIndices.value = _torrentFiles.value.indices.toSet()
+    }
+
     fun startSelection(fileIndex: Int) {
         _selectedFileIndices.value = setOf(fileIndex)
     }
@@ -92,6 +96,43 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
             } catch (e: Exception) {
                 _errorMessage.value = "Error setting file priority: ${e.message}"
             } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun batchRenameFiles(sortedFileIndices: List<Int>, template: String, varValuesPerFile: List<List<String>>) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                sortedFileIndices.forEachIndexed { listIdx, fileIndex ->
+                    val fullPath = _torrentFiles.value[fileIndex].name
+                    var newName = template
+                    varValuesPerFile[listIdx].forEachIndexed { varIdx, value ->
+                        newName = newName.replace("{${varIdx + 1}}", value)
+                    }
+                    val oldName = fullPath.split("/").last()
+                    if (newName != oldName) {
+                        transmissionRpcClient?.renameTorrent(torrentId, fullPath, newName)
+                    }
+                }
+                clearSelection()
+                fetchTorrentFiles()
+            } catch (e: Exception) {
+                _errorMessage.value = "Error renaming files: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun renameFile(filePath: String, newName: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                transmissionRpcClient?.renameTorrent(torrentId, filePath, newName)
+                fetchTorrentFiles()
+            } catch (e: Exception) {
+                _errorMessage.value = "Error renaming file: ${e.message}"
                 _isLoading.value = false
             }
         }
