@@ -17,6 +17,17 @@ data class RssItem(
     val guid: String
 )
 
+// Shared SharedPreferences keys for RSS "seen"/"notified" tracking, used by
+// TorrentCheckWorker (background notification dedup) and RssViewModel/RssScreen
+// (in-app "new item" highlighting). These are deliberately separate keys: the
+// worker must not mark items as "seen" for the UI before the user actually
+// views the RSS list, or the highlight would never show.
+object RssPrefs {
+    const val PREFS_NAME = "rss_prefs"
+    const val SEEN_GUIDS_KEY = "seen_guids"
+    const val NOTIFIED_GUIDS_KEY = "notified_guids"
+}
+
 class RssReader {
     private val client = HttpClient(OkHttp)
 

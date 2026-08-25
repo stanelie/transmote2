@@ -5,8 +5,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -24,6 +27,9 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
 
     private val _isMenuVisible = MutableStateFlow(false)
     val isMenuVisible: StateFlow<Boolean> = _isMenuVisible.asStateFlow()
+
+    private val _scrollToTopEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val scrollToTopEvent: SharedFlow<Unit> = _scrollToTopEvent.asSharedFlow()
 
     private var transmissionRpcClient: TransmissionRpcClient? = null
     private var currentSettings: ConnectionSettings? = null
@@ -139,6 +145,7 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             try {
                 transmissionRpcClient?.addTorrent(magnetOrBase64)
                 performFetch() // Refresh list after adding
+                _scrollToTopEvent.tryEmit(Unit)
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }

@@ -31,7 +31,7 @@ class RssViewModel(
     private val _seenItemGuids = MutableStateFlow<Set<String>>(emptySet())
     val seenItemGuids: StateFlow<Set<String>> = _seenItemGuids.asStateFlow()
 
-    private val sharedPreferences = appContext.getSharedPreferences("rss_prefs", Context.MODE_PRIVATE)
+    private val sharedPreferences = appContext.getSharedPreferences(RssPrefs.PREFS_NAME, Context.MODE_PRIVATE)
     internal var initialGuids: Set<String> = emptySet() // Changed from private to internal
 
     init {
@@ -40,7 +40,7 @@ class RssViewModel(
     }
 
     private fun loadSeenItems() {
-        val guids = sharedPreferences.getStringSet("seen_guids", emptySet()) ?: emptySet()
+        val guids = sharedPreferences.getStringSet(RssPrefs.SEEN_GUIDS_KEY, emptySet()) ?: emptySet()
         _seenItemGuids.value = guids
         initialGuids = guids // Store the initial "seen" list
     }
@@ -78,9 +78,9 @@ class RssViewModel(
     }
 
     private fun markAllAsSeen(guids: List<String>) {
-        val allGuids = sharedPreferences.getStringSet("seen_guids", emptySet()) ?: emptySet()
+        val allGuids = sharedPreferences.getStringSet(RssPrefs.SEEN_GUIDS_KEY, emptySet()) ?: emptySet()
         val newSeenGuids = allGuids + guids
-        sharedPreferences.edit().putStringSet("seen_guids", newSeenGuids).apply()
+        sharedPreferences.edit().putStringSet(RssPrefs.SEEN_GUIDS_KEY, newSeenGuids).apply()
     }
 
     companion object {

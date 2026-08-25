@@ -41,6 +41,12 @@ fun MainScreen(navController: NavController, mainViewModel: MainViewModel) {
     )
     val listState = rememberLazyListState()
 
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.scrollToTopEvent.collect {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier

@@ -27,18 +27,21 @@ class TorrentCheckWorker(appContext: Context, workerParams: WorkerParameters) :
                 return Result.success()
             }
 
-            val rssPrefs = applicationContext.getSharedPreferences("rss_prefs", Context.MODE_PRIVATE)
-            val seenGuids = rssPrefs.getStringSet("seen_guids", emptySet()) ?: emptySet()
+            val rssPrefs = applicationContext.getSharedPreferences(RssPrefs.PREFS_NAME, Context.MODE_PRIVATE)
+            // Tracks which items have already triggered a notification; kept separate
+            // from RssPrefs.SEEN_GUIDS_KEY, which tracks what the user has actually
+            // viewed in the RSS list and drives the "new item" highlight there.
+            val notifiedGuids = rssPrefs.getStringSet(RssPrefs.NOTIFIED_GUIDS_KEY, emptySet()) ?: emptySet()
 
             val items = RssReader().fetchRssItems(settings.rssFeedUrl)
-            val newItems = items.filter { it.guid !in seenGuids }
+            val newItems = items.filter { it.guid !in notifiedGuids }
 
             if (newItems.isNotEmpty()) {
                 Log.d(TAG, "Found ${newItems.size} new RSS items.")
                 notificationHelper.showRssNotification(newItems)
-                val updatedGuids = seenGuids.toMutableSet()
+                val updatedGuids = notifiedGuids.toMutableSet()
                     .also { it.addAll(items.map { i -> i.guid }) }
-                rssPrefs.edit().putStringSet("seen_guids", updatedGuids).apply()
+                rssPrefs.edit().putStringSet(RssPrefs.NOTIFIED_GUIDS_KEY, updatedGuids).apply()
             } else {
                 Log.d(TAG, "No new RSS items.")
             }

@@ -1,6 +1,7 @@
 package com.stanelie.transmote2
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -29,9 +30,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -164,14 +167,23 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Handle incoming intent
-                handleIntent(mainViewModel)
+                // Handle incoming intent. Deferred to a LaunchedEffect: the RSS-notification
+                // branches call navController.navigate(), and Scaffold composes its content
+                // (and thus NavHost, which attaches the graph) in a later subcomposition
+                // pass, so navigating too early throws "Navigation graph has not been set".
+                LaunchedEffect(navController) {
+                    while (runCatching { navController.graph }.isFailure) {
+                        withFrameNanos {}
+                    }
+                    handleIntent(navController, mainViewModel)
+                }
             }
         }
     }
 
-    private fun handleIntent(viewModel: MainViewModel) {
-        val intentData = intent?.data
+    private fun handleIntent(navController: NavController, viewModel: MainViewModel) {
+        val currentIntent = intent ?: return
+        val intentData = currentIntent.data
         if (intentData != null) {
             when {
                 intentData.scheme == "magnet" -> {
@@ -199,8 +211,33 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            intent.data = null
+            currentIntent.data = null
+        } else when (currentIntent.action) {
+            NotificationHelper.ACTION_SHOW_RSS -> {
+                // Tapping a grouped notification's summary: go see which items are new.
+                navController.navigate(Routes.RSS_SCREEN)
+            }
+            NotificationHelper.ACTION_ADD_RSS_TORRENT -> {
+                // Tapping a single item's notification (or one expanded out of a group):
+                // add it straight away and land on the downloads list to confirm it landed.
+                val link = currentIntent.getStringExtra(NotificationHelper.EXTRA_RSS_LINK)
+                if (link != null) {
+                    viewModel.addTorrent(link)
+                    currentIntent.getStringExtra(NotificationHelper.EXTRA_RSS_GUID)?.let { markRssGuidSeen(it) }
+                    navController.navigate(Routes.MAIN_SCREEN) {
+                        popUpTo(Routes.MAIN_SCREEN) { inclusive = true }
+                    }
+                    Toast.makeText(this, "Adding torrent from RSS feed...", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
+        currentIntent.action = null
+    }
+
+    private fun markRssGuidSeen(guid: String) {
+        val prefs = getSharedPreferences(RssPrefs.PREFS_NAME, Context.MODE_PRIVATE)
+        val seen = prefs.getStringSet(RssPrefs.SEEN_GUIDS_KEY, emptySet()) ?: emptySet()
+        prefs.edit().putStringSet(RssPrefs.SEEN_GUIDS_KEY, seen + guid).apply()
     }
 }
 
