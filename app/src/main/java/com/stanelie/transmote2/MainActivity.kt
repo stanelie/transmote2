@@ -90,11 +90,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
                         TopAppBar(
-                            title = { 
+                            title = {
                                 if (currentRoute == Routes.RSS_SCREEN) {
-                                    Text("RSS Feed")
+                                    TopBarTitle("RSS Feed")
                                 } else {
-                                    Text(connectionStatus, style = MaterialTheme.typography.titleMedium)
+                                    ConnectionStatusTitle(connectionStatus)
                                 }
                             },
                             navigationIcon = {
@@ -104,12 +104,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
+                            colors = transmoteTopAppBarColors(),
                             actions = {
                                 if (currentRoute == Routes.MAIN_SCREEN) {
                                     IconButton(onClick = { navController.navigate(Routes.RSS_SCREEN) }) {

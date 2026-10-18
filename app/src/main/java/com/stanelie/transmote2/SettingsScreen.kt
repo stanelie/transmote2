@@ -32,7 +32,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { TopBarTitle("Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -46,12 +46,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                         Icon(Icons.Filled.Check, contentDescription = "Save Settings")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
+                colors = transmoteTopAppBarColors()
             )
         },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)

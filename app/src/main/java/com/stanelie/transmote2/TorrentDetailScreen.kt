@@ -203,7 +203,7 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Torrent Files") },
+                title = { TopBarTitle("Torrent Files") },
                 navigationIcon = {
                     IconButton(onClick = { 
                         if (isSelectionModeActive) {
@@ -219,21 +219,16 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
                     if (isSelectionModeActive) {
                         Text(
                             "${selectedFileIndices.size} selected",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 16.dp)
                         )
                     } else {
                         TextButton(onClick = { torrentDetailViewModel.selectAll() }) {
-                            Text("Select all", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("Select all", color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
+                colors = transmoteTopAppBarColors()
             )
         },
         bottomBar = {
