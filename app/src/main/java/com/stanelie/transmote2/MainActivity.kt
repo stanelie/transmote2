@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.RssFeed
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -53,7 +52,6 @@ import java.io.IOException
 object Routes {
     const val MAIN_SCREEN = "main_screen"
     const val SETTINGS_SCREEN = "settings_screen"
-    const val SEARCH_SCREEN = "search_screen"
     const val RSS_SCREEN = "rss_screen"
     const val TORRENT_DETAIL_SCREEN = "torrent_detail_screen/{torrentId}"
     fun torrentDetailRoute(torrentId: Int) = "torrent_detail_screen/$torrentId"
@@ -82,7 +80,6 @@ class MainActivity : ComponentActivity() {
                 val preferencesDataStore = remember { PreferencesDataStore(context) }
                 val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.provideFactory(preferencesDataStore, context.applicationContext))
                 val mainViewModel: MainViewModel = viewModel(factory = MainViewModel.provideFactory(preferencesDataStore))
-                val searchViewModel: SearchViewModel = viewModel()
                 val rssViewModel: RssViewModel = viewModel(factory = RssViewModel.provideFactory(preferencesDataStore, RssReader(), context.applicationContext))
 
                 val connectionStatus by mainViewModel.connectionStatus.collectAsState()
@@ -94,16 +91,14 @@ class MainActivity : ComponentActivity() {
                     topBar = {
                         TopAppBar(
                             title = { 
-                                if (currentRoute == Routes.SEARCH_SCREEN) {
-                                    Text("Search 1337x.to")
-                                } else if (currentRoute == Routes.RSS_SCREEN) {
+                                if (currentRoute == Routes.RSS_SCREEN) {
                                     Text("RSS Feed")
                                 } else {
                                     Text(connectionStatus, style = MaterialTheme.typography.titleMedium)
                                 }
                             },
                             navigationIcon = {
-                                if (currentRoute == Routes.SEARCH_SCREEN || currentRoute == Routes.RSS_SCREEN) {
+                                if (currentRoute == Routes.RSS_SCREEN) {
                                     IconButton(onClick = { navController.popBackStack() }) {
                                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                     }
@@ -120,9 +115,6 @@ class MainActivity : ComponentActivity() {
                                     IconButton(onClick = { navController.navigate(Routes.RSS_SCREEN) }) {
                                         Icon(Icons.Filled.RssFeed, contentDescription = "RSS Feed")
                                     }
-                                    IconButton(onClick = { navController.navigate(Routes.SEARCH_SCREEN) }) {
-                                        Icon(Icons.Filled.Search, contentDescription = "Search")
-                                    }
                                     IconButton(onClick = { navController.navigate(Routes.SETTINGS_SCREEN) }) {
                                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                                     }
@@ -137,15 +129,6 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(Routes.SETTINGS_SCREEN) {
                             SettingsScreen(navController = navController, settingsViewModel = settingsViewModel)
-                        }
-                        composable(Routes.SEARCH_SCREEN) {
-                            SearchScreen(
-                                navController = navController,
-                                searchViewModel = searchViewModel,
-                                onAddTorrent = { magnetLink ->
-                                    mainViewModel.addTorrent(magnetLink)
-                                }
-                            )
                         }
                         composable(Routes.RSS_SCREEN) {
                             RssScreen(
