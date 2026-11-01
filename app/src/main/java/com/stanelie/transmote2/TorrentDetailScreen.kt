@@ -13,6 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -24,6 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,6 +49,17 @@ data class FileTreeNode(
     val depth: Int = 0,
     val priority: Int? = null
 )
+
+/** Indices of every file at or below this node. */
+fun FileTreeNode.leafFileIndices(): List<Int> =
+    if (isDirectory) children.flatMap { it.leafFileIndices() } else listOfNotNull(fileIndex)
+
+/** The priority shared by every file below this node, or null when they differ. */
+fun FileTreeNode.uniformPriority(): Int? {
+    if (!isDirectory) return priority
+    val all = children.map { it.uniformPriority() ?: return null }.distinct()
+    return all.singleOrNull()
+}
 
 fun longestCommonPrefix(strings: List<String>): String {
     if (strings.isEmpty()) return ""
@@ -200,6 +217,17 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
     var renameTemplateOriginal by remember { mutableStateOf("") }
     var showBatchRenameDialog by remember { mutableStateOf(false) }
 
+    // Priorities may have been changed by another client, so re-read from the server
+    // each time this screen comes to the foreground (including first entry).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) torrentDetailViewModel.refreshFiles()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -312,6 +340,9 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
                             onFileClick = { fileIndex ->
                                 torrentDetailViewModel.toggleFileSelection(fileIndex)
                             },
+                            onFolderSelectClick = { indices ->
+                                torrentDetailViewModel.toggleFolderSelection(indices)
+                            },
                             selectedFileIndices = itemSelectedIndices,
                             expandedNodePaths = expandedNodePaths.value
                         )
@@ -373,18 +404,25 @@ fun FileTreeItem(
     isExpanded: Boolean,
     onToggleExpansion: (String) -> Unit,
     onFileClick: (Int) -> Unit,
+    onFolderSelectClick: (List<Int>) -> Unit,
     selectedFileIndices: Set<Int>,
     expandedNodePaths: Set<String>
 ) {
     val startPadding = (level * 16).dp
 
-    val defaultBackgroundColor = when (node.priority) {
+    val folderIndices = if (node.isDirectory) node.leafFileIndices() else emptyList()
+    val selectedInFolder = folderIndices.count { selectedFileIndices.contains(it) }
+    val folderFullySelected = folderIndices.isNotEmpty() && selectedInFolder == folderIndices.size
+    val rowSelected = if (node.isDirectory) folderFullySelected else isSelected
+
+    // Folders take the colour of their contents when every file below them shares a priority.
+    val defaultBackgroundColor = when (node.uniformPriority()) {
         -1 -> Color.DarkGray
         0 -> Color(0xFF4CAF50).copy(alpha = 0.2f)
         1 -> Color.Red.copy(alpha = 0.2f)
         else -> Color.Transparent
     }
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else defaultBackgroundColor
+    val backgroundColor = if (rowSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else defaultBackgroundColor
 
     Column(modifier = Modifier.padding(start = startPadding)) {
         Row(
@@ -408,7 +446,20 @@ fun FileTreeItem(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(node.name, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.basicMarquee())
+                Text(node.name, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f).basicMarquee())
+                IconButton(
+                    onClick = { onFolderSelectClick(folderIndices) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = when {
+                            folderFullySelected -> Icons.Filled.CheckBox
+                            selectedInFolder > 0 -> Icons.Filled.IndeterminateCheckBox
+                            else -> Icons.Filled.CheckBoxOutlineBlank
+                        },
+                        contentDescription = "Select all files in folder"
+                    )
+                }
             } else {
                 Text(node.name, modifier = Modifier.weight(1f).basicMarquee(), maxLines = 1)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -431,6 +482,7 @@ fun FileTreeItem(
                         isExpanded = expandedNodePaths.contains(childNode.path),
                         onToggleExpansion = onToggleExpansion,
                         onFileClick = onFileClick,
+                        onFolderSelectClick = onFolderSelectClick,
                         selectedFileIndices = selectedFileIndices,
                         expandedNodePaths = expandedNodePaths
                     )

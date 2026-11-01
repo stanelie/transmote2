@@ -26,32 +26,37 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
 
     private var transmissionRpcClient: TransmissionRpcClient? = null
 
-    init {
-        viewModelScope.launch {
-            // Initialize the client once with the current settings
-            val settings = preferencesDataStore.settingsFlow.first()
-            transmissionRpcClient = TransmissionRpcClient(settings)
-            if (torrentId != -1) {
-                fetchTorrentFiles()
-            }
-        }
+    private suspend fun rpcClient(): TransmissionRpcClient {
+        transmissionRpcClient?.let { return it }
+        val client = TransmissionRpcClient(preferencesDataStore.settingsFlow.first())
+        transmissionRpcClient = client
+        return client
     }
 
-    fun fetchTorrentFiles() {
+    /**
+     * Called every time the screen comes to the foreground. File priorities can be changed by
+     * other Transmission clients at any time, so they are always re-read from the server. Once
+     * a list is on screen the refresh is silent, so the list is not replaced by a spinner.
+     */
+    fun refreshFiles() {
+        fetchTorrentFiles(silent = _torrentFiles.value.isNotEmpty())
+    }
+
+    fun fetchTorrentFiles(silent: Boolean = false) {
+        if (torrentId == -1) return
         viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
+            if (!silent) {
+                _isLoading.value = true
+                _errorMessage.value = null
+            }
             try {
-                val files = transmissionRpcClient?.getTorrentFiles(torrentId)
-                if (files != null) {
-                    _torrentFiles.value = files
-                } else {
-                    _errorMessage.value = "Error fetching files: RPC Client might be null or call failed."
-                }
+                _torrentFiles.value = rpcClient().getTorrentFiles(torrentId)
+                _errorMessage.value = null
             } catch (e: Exception) {
-                _errorMessage.value = "Error fetching files: ${e.message}"
+                // A failed background refresh keeps showing the last known list.
+                if (!silent) _errorMessage.value = "Error fetching files: ${e.message}"
             } finally {
-                _isLoading.value = false
+                if (!silent) _isLoading.value = false
             }
         }
     }
@@ -72,6 +77,16 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
         _selectedFileIndices.value = _torrentFiles.value.indices.toSet()
     }
 
+    /** Selects every file in a folder, or deselects them all if they are already all selected. */
+    fun toggleFolderSelection(fileIndices: List<Int>) {
+        if (fileIndices.isEmpty()) return
+        _selectedFileIndices.value = if (_selectedFileIndices.value.containsAll(fileIndices)) {
+            _selectedFileIndices.value - fileIndices.toSet()
+        } else {
+            _selectedFileIndices.value + fileIndices
+        }
+    }
+
     fun startSelection(fileIndex: Int) {
         _selectedFileIndices.value = setOf(fileIndex)
     }
@@ -81,7 +96,7 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                transmissionRpcClient?.setFilePriorities(torrentId, _selectedFileIndices.value.toList(), priority)
+                rpcClient().setFilePriorities(torrentId, _selectedFileIndices.value.toList(), priority)
 
                 // Optimistic UI update
                 val updatedFiles = _torrentFiles.value.mapIndexed { index, file ->
@@ -93,6 +108,8 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
                 }
                 _torrentFiles.value = updatedFiles
                 clearSelection()
+                // Confirm against what the server actually holds.
+                fetchTorrentFiles(silent = true)
             } catch (e: Exception) {
                 _errorMessage.value = "Error setting file priority: ${e.message}"
             } finally {
@@ -113,7 +130,7 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
                     }
                     val oldName = fullPath.split("/").last()
                     if (newName != oldName) {
-                        transmissionRpcClient?.renameTorrent(torrentId, fullPath, newName)
+                        rpcClient().renameTorrent(torrentId, fullPath, newName)
                     }
                 }
                 clearSelection()
@@ -129,7 +146,7 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                transmissionRpcClient?.renameTorrent(torrentId, filePath, newName)
+                rpcClient().renameTorrent(torrentId, filePath, newName)
                 fetchTorrentFiles()
             } catch (e: Exception) {
                 _errorMessage.value = "Error renaming file: ${e.message}"
