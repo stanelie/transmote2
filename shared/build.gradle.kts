@@ -13,8 +13,14 @@ kotlin {
     // Compose Multiplatform publishes no iosX64 artifacts (checked 1.11.1 and 1.12.2),
     // so the Intel-Mac simulator cannot be a target. Device plus the Apple-silicon
     // simulator, which costs nothing here and works on a future Mac.
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "Shared"
+            // Static linking keeps the Xcode side to a single framework with
+            // no embedded-dylib dance.
+            isStatic = true
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {

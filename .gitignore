@@ -30,3 +30,8 @@ captures/
 google-services.json
 
 
+
+# Xcode
+iosApp/build/
+*.xcuserstate
+xcuserdata/
