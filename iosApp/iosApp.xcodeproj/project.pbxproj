@@ -199,7 +199,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = LN36NDCR6K;
+				DEVELOPMENT_TEAM = TTT8628BZJ;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -217,7 +217,7 @@
 					"-framework",
 					Shared,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.stanelie.transmote2;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.exmachina.transmote2;
 				PRODUCT_NAME = Transmote;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -230,7 +230,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = LN36NDCR6K;
+				DEVELOPMENT_TEAM = TTT8628BZJ;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -248,7 +248,7 @@
 					"-framework",
 					Shared,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.stanelie.transmote2;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.exmachina.transmote2;
 				PRODUCT_NAME = Transmote;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
