@@ -163,7 +163,13 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
             return null
         }
         // Ensure base URL ends with a slash
-        val correctedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        var correctedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        // A base URL saved without a scheme ("www.example.com/files") parses as a
+        // relative URI, which no browser will handle - ACTION_VIEW then throws
+        // ActivityNotFoundException. Default it to https.
+        if (!correctedBaseUrl.contains("://")) {
+            correctedBaseUrl = "https://$correctedBaseUrl"
+        }
         
         // Encode each path segment individually
         val encodedPath = fileName.split('/')
