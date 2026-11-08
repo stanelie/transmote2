@@ -30,6 +30,7 @@ kotlin {
             api(libs.jetbrains.navigation.compose)
             api(libs.androidx.datastore.preferences.core)
             implementation(libs.okio)
+            implementation(libs.xmlutil.core)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
