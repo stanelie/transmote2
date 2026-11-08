@@ -9,5 +9,11 @@ data class ConnectionSettings(
     val refreshFrequency: Int = 30,
     val rssFeedUrl: String = "",
     val webDownloadUrl: String = "",
-    val rssPollingIntervalHours: Int = 6
+    val rssPollingIntervalHours: Int = 6,
+    /**
+     * Base URL of the push server (see server/). Blank disables push.
+     * Treat it as a capability URL - the app registers its APNs token and
+     * current RSS feed URL there, so the secret lives in the path.
+     */
+    val pushServerUrl: String = ""
 )

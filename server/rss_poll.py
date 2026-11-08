@@ -2,8 +2,10 @@
 """
 Poll the RSS feed and push once per genuinely new item.
 
-The feed is a public URL, so this needs no access to the RSS server - it is
-an ordinary HTTP GET from yours. Run it from cron, e.g. every 15 minutes:
+The feed URL is read from devices.json, which the app registers - the user
+can change the feed in Settings, so the server must not hold its own copy.
+The feed itself is a public URL, so this needs no access to the RSS server,
+only an ordinary HTTP GET from yours. Run from cron, e.g. every 15 minutes:
 
     */15 * * * * /path/to/rss_poll.py >> /var/log/transmote-rss.log 2>&1
 
@@ -12,18 +14,16 @@ everything as seen WITHOUT notifying, so you do not get a burst of pushes
 for the existing backlog.
 """
 
+import json
 import os
 import subprocess
 import sys
 import urllib.request
 import xml.etree.ElementTree as ET
 
-FEED_URL = os.environ.get("TRANSMOTE_RSS_URL") or sys.exit(
-    "set TRANSMOTE_RSS_URL to the feed (the same URL as in the app's settings)"
-)
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 SEEN = os.path.join(HERE, "rss_seen.txt")
+DEVICES = os.path.join(HERE, "devices.json")
 PUSH = os.path.join(HERE, "transmote_push.py")
 MAX_PUSHES = 5          # never spam; summarise beyond this
 
@@ -40,7 +40,17 @@ def save_seen(guids):
         fh.write("\n".join(sorted(guids)))
 
 
-def fetch_items():
+def feed_urls():
+    """Feed URLs come from the app via register_server.py. The user can change
+    the feed in Settings, so hardcoding it here would silently go stale."""
+    if not os.path.exists(DEVICES):
+        return []
+    with open(DEVICES) as fh:
+        devices = json.load(fh)
+    return sorted({d["rssFeedUrl"] for d in devices.values() if d.get("rssFeedUrl")})
+
+
+def fetch_items(FEED_URL):
     req = urllib.request.Request(FEED_URL, headers={"User-Agent": "transmote-rss-poll/1"})
     with urllib.request.urlopen(req, timeout=30) as r:
         root = ET.fromstring(r.read())
@@ -59,7 +69,17 @@ def push(title, body):
 
 
 def main():
-    items = fetch_items()
+    urls = feed_urls()
+    if not urls:
+        print("no feed registered yet - open the app with a Push server URL set")
+        return 0
+
+    items = []
+    for url in urls:
+        try:
+            items.extend(fetch_items(url))
+        except Exception as e:
+            print(f"failed to read {url}: {e}", file=sys.stderr)
     if not items:
         print("feed returned no items")
         return 0

@@ -37,6 +37,9 @@ class SettingsViewModel(
     private val _webDownloadUrl = MutableStateFlow("")
     val webDownloadUrl: StateFlow<String> = _webDownloadUrl.asStateFlow()
 
+    private val _pushServerUrl = MutableStateFlow("")
+    val pushServerUrl: StateFlow<String> = _pushServerUrl.asStateFlow()
+
     private val _rssPollingIntervalHours = MutableStateFlow("")
     val rssPollingIntervalHours: StateFlow<String> = _rssPollingIntervalHours.asStateFlow()
 
@@ -56,6 +59,7 @@ class SettingsViewModel(
                 _rssFeedUrl.value = it.rssFeedUrl
                 _webDownloadUrl.value = it.webDownloadUrl
                 _rssPollingIntervalHours.value = it.rssPollingIntervalHours.toString()
+                _pushServerUrl.value = it.pushServerUrl
             }
         }
     }
@@ -69,6 +73,7 @@ class SettingsViewModel(
     fun updateRssFeedUrl(url: String) { _rssFeedUrl.value = url }
     fun updateWebDownloadUrl(url: String) { _webDownloadUrl.value = url }
     fun updateRssPollingIntervalHours(hours: String) { _rssPollingIntervalHours.value = hours }
+    fun updatePushServerUrl(url: String) { _pushServerUrl.value = url }
 
     fun saveSettings() {
         viewModelScope.launch {
@@ -82,8 +87,12 @@ class SettingsViewModel(
                 refreshFrequency = _refreshFrequency.value.toIntOrNull() ?: 30,
                 rssFeedUrl = _rssFeedUrl.value,
                 webDownloadUrl = _webDownloadUrl.value,
-                rssPollingIntervalHours = intervalHours
+                rssPollingIntervalHours = intervalHours,
+                pushServerUrl = _pushServerUrl.value
             )
+            // The server polls the feed, so it must learn the URL whenever
+            // it changes here - that is the whole reason registration exists.
+            PushRegistration.registerIfPossible(_pushServerUrl.value, _rssFeedUrl.value)
             BackgroundPolling.schedule(intervalHours)
         }
     }

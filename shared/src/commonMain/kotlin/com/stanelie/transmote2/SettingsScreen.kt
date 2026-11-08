@@ -27,6 +27,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
     val rssFeedUrl by settingsViewModel.rssFeedUrl.collectAsState()
     val webDownloadUrl by settingsViewModel.webDownloadUrl.collectAsState()
     val rssPollingIntervalHours by settingsViewModel.rssPollingIntervalHours.collectAsState()
+    val pushServerUrl by settingsViewModel.pushServerUrl.collectAsState()
 
     Scaffold(
         topBar = {
@@ -144,6 +145,17 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, autoCorrect = false),
                     modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = pushServerUrl,
+                    onValueChange = { settingsViewModel.updatePushServerUrl(it) },
+                    label = { Text("Push server URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = { Text("Blank disables push notifications.") },
+                    keyboardOptions = KeyboardOptions(autoCorrect = false)
                 )
 
                 // iOS only: the APNs token the push server needs. Android

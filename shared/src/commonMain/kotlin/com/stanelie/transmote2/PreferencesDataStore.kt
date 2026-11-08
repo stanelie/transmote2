@@ -39,6 +39,7 @@ class PreferencesDataStore(
         val RSS_FEED_URL = stringPreferencesKey("rss_feed_url")
         val WEB_DOWNLOAD_URL = stringPreferencesKey("web_download_url")
         val RSS_POLLING_INTERVAL_HOURS = intPreferencesKey("rss_polling_interval_hours")
+        val PUSH_SERVER_URL = stringPreferencesKey("push_server_url")
     }
 
     val settingsFlow: Flow<ConnectionSettings> = dataStore.data
@@ -52,7 +53,8 @@ class PreferencesDataStore(
                 refreshFrequency = preferences[PreferencesKeys.REFRESH_FREQUENCY] ?: 30,
                 rssFeedUrl = preferences[PreferencesKeys.RSS_FEED_URL] ?: "",
                 webDownloadUrl = preferences[PreferencesKeys.WEB_DOWNLOAD_URL] ?: "",
-                rssPollingIntervalHours = preferences[PreferencesKeys.RSS_POLLING_INTERVAL_HOURS] ?: 6
+                rssPollingIntervalHours = preferences[PreferencesKeys.RSS_POLLING_INTERVAL_HOURS] ?: 6,
+                pushServerUrl = preferences[PreferencesKeys.PUSH_SERVER_URL] ?: ""
             )
         }
 
@@ -65,7 +67,8 @@ class PreferencesDataStore(
         refreshFrequency: Int,
         rssFeedUrl: String,
         webDownloadUrl: String,
-        rssPollingIntervalHours: Int
+        rssPollingIntervalHours: Int,
+        pushServerUrl: String
     ) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.SERVER_ADDRESS] = serverAddress
@@ -77,6 +80,7 @@ class PreferencesDataStore(
             preferences[PreferencesKeys.RSS_FEED_URL] = rssFeedUrl
             preferences[PreferencesKeys.WEB_DOWNLOAD_URL] = webDownloadUrl
             preferences[PreferencesKeys.RSS_POLLING_INTERVAL_HOURS] = rssPollingIntervalHours
+            preferences[PreferencesKeys.PUSH_SERVER_URL] = pushServerUrl
         }
     }
 }

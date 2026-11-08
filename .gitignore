@@ -40,3 +40,4 @@ xcuserdata/
 server/transmote_push.conf
 server/rss_seen.txt
 server/.apns_jwt
+server/devices.json
