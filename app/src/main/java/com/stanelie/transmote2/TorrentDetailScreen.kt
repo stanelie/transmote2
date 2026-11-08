@@ -1,5 +1,7 @@
 package com.stanelie.transmote2
 
+import com.stanelie.transmote2.ui.AppIcons
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
@@ -11,14 +13,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
-import androidx.compose.material.icons.filled.IndeterminateCheckBox
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -240,7 +236,7 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
                             navController.popBackStack()
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (isSelectionModeActive) "Clear Selection" else "Back")
+                        Icon(AppIcons.ArrowBack, contentDescription = if (isSelectionModeActive) "Clear Selection" else "Back")
                     }
                 },
                 actions = {
@@ -441,25 +437,21 @@ fun FileTreeItem(
         ) {
             if (node.isDirectory) {
                 Icon(
-                    imageVector = if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                    imageVector = if (isExpanded) AppIcons.KeyboardArrowDown else AppIcons.KeyboardArrowRight,
                     contentDescription = if (isExpanded) "Collapse" else "Expand",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(node.name, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f).basicMarquee())
-                IconButton(
+                TriStateCheckbox(
+                    state = when {
+                        folderFullySelected -> ToggleableState.On
+                        selectedInFolder > 0 -> ToggleableState.Indeterminate
+                        else -> ToggleableState.Off
+                    },
                     onClick = { onFolderSelectClick(folderIndices) },
                     modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = when {
-                            folderFullySelected -> Icons.Filled.CheckBox
-                            selectedInFolder > 0 -> Icons.Filled.IndeterminateCheckBox
-                            else -> Icons.Filled.CheckBoxOutlineBlank
-                        },
-                        contentDescription = "Select all files in folder"
-                    )
-                }
+                )
             } else {
                 Text(node.name, modifier = Modifier.weight(1f).basicMarquee(), maxLines = 1)
                 Spacer(modifier = Modifier.width(8.dp))

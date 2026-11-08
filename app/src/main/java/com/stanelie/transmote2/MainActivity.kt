@@ -1,5 +1,7 @@
 package com.stanelie.transmote2
 
+import com.stanelie.transmote2.ui.AppIcons
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -16,10 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.RssFeed
-import androidx.compose.material.icons.filled.Settings
+import com.stanelie.transmote2.ui.AppIcons.RssFeed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -100,7 +99,7 @@ class MainActivity : ComponentActivity() {
                             navigationIcon = {
                                 if (currentRoute == Routes.RSS_SCREEN) {
                                     IconButton(onClick = { navController.popBackStack() }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                        Icon(AppIcons.ArrowBack, contentDescription = "Back")
                                     }
                                 }
                             },
@@ -108,10 +107,10 @@ class MainActivity : ComponentActivity() {
                             actions = {
                                 if (currentRoute == Routes.MAIN_SCREEN) {
                                     IconButton(onClick = { navController.navigate(Routes.RSS_SCREEN) }) {
-                                        Icon(Icons.Filled.RssFeed, contentDescription = "RSS Feed")
+                                        Icon(AppIcons.RssFeed, contentDescription = "RSS Feed")
                                     }
                                     IconButton(onClick = { navController.navigate(Routes.SETTINGS_SCREEN) }) {
-                                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                                        Icon(AppIcons.Settings, contentDescription = "Settings")
                                     }
                                 }
                             }

@@ -1,12 +1,11 @@
 package com.stanelie.transmote2
 
+import com.stanelie.transmote2.ui.AppIcons
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +34,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                 title = { TopBarTitle("Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(AppIcons.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -43,7 +42,7 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                         settingsViewModel.saveSettings()
                         navController.popBackStack()
                     }) {
-                        Icon(Icons.Filled.Check, contentDescription = "Save Settings")
+                        Icon(AppIcons.Check, contentDescription = "Save Settings")
                     }
                 },
                 colors = transmoteTopAppBarColors()

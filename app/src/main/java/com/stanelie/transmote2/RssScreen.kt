@@ -5,11 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RssScreen(
     navController: NavController,
@@ -30,20 +27,16 @@ fun RssScreen(
     val seenItemGuids by rssViewModel.seenItemGuids.collectAsState()
 
     val listState = rememberLazyListState()
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = { rssViewModel.refreshFeed() }
-    )
 
     // Trigger the initial refresh when the screen is first composed
     LaunchedEffect(Unit) {
         rssViewModel.refreshFeed()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pullRefresh(pullRefreshState)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { rssViewModel.refreshFeed() },
+        modifier = Modifier.fillMaxSize()
     ) {
         if (error != null) {
             Text(
@@ -78,12 +71,6 @@ fun RssScreen(
                 }
             }
         }
-
-        PullRefreshIndicator(
-            refreshing = isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 }
 

@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,16 +26,12 @@ import com.stanelie.transmote2.formatEta
 import com.stanelie.transmote2.formatTimestamp
 import com.stanelie.transmote2.getTorrentStatusString
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(navController: NavController, mainViewModel: MainViewModel) {
     val torrents by mainViewModel.torrents.collectAsState()
     val isRefreshing by mainViewModel.isRefreshing.collectAsState()
 
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = { mainViewModel.manualRefresh() } // Call the new manualRefresh function
-    )
     val listState = rememberLazyListState()
 
     LaunchedEffect(mainViewModel) {
@@ -53,7 +46,11 @@ fun MainScreen(navController: NavController, mainViewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Box(modifier = Modifier.weight(1f).pullRefresh(pullRefreshState)) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { mainViewModel.manualRefresh() },
+                modifier = Modifier.weight(1f)
+            ) {
                 if (torrents.isEmpty() && !isRefreshing) {
                     Text(
                         text = "No torrents found or server not configured.",
@@ -82,11 +79,6 @@ fun MainScreen(navController: NavController, mainViewModel: MainViewModel) {
                         }
                     }
                 }
-                PullRefreshIndicator(
-                    refreshing = isRefreshing,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
             }
         }
     }
