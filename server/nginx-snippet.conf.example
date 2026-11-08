@@ -1,0 +1,16 @@
+# Expose the registration endpoint on the host that already terminates TLS
+# for bt.stanelie.com. The secret is the path segment, so it must match
+# TRANSMOTE_SECRET in the systemd unit.
+#
+# Add inside the existing  server { ... }  block for bt.stanelie.com:
+
+location /CHANGE_ME_LONG_RANDOM_STRING/ {
+    proxy_pass http://127.0.0.1:8099;
+    proxy_set_header Host $host;
+    # The app posts a small JSON body; nothing else should reach this.
+    client_max_body_size 8k;
+}
+
+# The app's "Push server URL" setting is then:
+#   https://bt.stanelie.com/CHANGE_ME_LONG_RANDOM_STRING
+# and it will POST to  .../CHANGE_ME_LONG_RANDOM_STRING/register

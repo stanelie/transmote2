@@ -1,0 +1,26 @@
+# Registration endpoint for the Transmote app.
+# Install:  sudo cp transmote-register.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now transmote-register
+[Unit]
+Description=Transmote push registration endpoint
+After=network.target
+
+[Service]
+Type=simple
+# Run as whatever user owns /opt/transmote (often the transmission user,
+# so the torrent-done hook and this service share devices.json).
+User=debian-transmission
+WorkingDirectory=/opt/transmote
+# Must match the path segment your reverse proxy forwards.
+Environment=TRANSMOTE_SECRET=CHANGE_ME_LONG_RANDOM_STRING
+ExecStart=/usr/bin/python3 /opt/transmote/register_server.py 8099
+Restart=on-failure
+
+# It only ever writes devices.json in its own directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/transmote
+
+[Install]
+WantedBy=multi-user.target
