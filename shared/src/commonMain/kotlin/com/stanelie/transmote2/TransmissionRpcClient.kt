@@ -1,14 +1,19 @@
 package com.stanelie.transmote2
 
-import android.util.Log
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.headers
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import io.ktor.serialization.kotlinx.json.json
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.SerialName
@@ -124,7 +129,7 @@ data class TorrentRenameArgs(
 
 class TransmissionRpcClient(private val settings: ConnectionSettings) {
 
-    private val client = HttpClient(OkHttp) {
+    private val client = createHttpClient {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
         }
@@ -138,6 +143,7 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
         return "$protocol://${settings.serverAddress}:${settings.port}/transmission/rpc"
     }
 
+    @OptIn(ExperimentalEncodingApi::class)
     private suspend inline fun <reified T, reified R> makeRpcCall(method: String, arguments: T): RpcResponse<R> {
         val requestBody = RpcRequest(method, arguments)
         val rpcUrl = buildRpcUrl()
@@ -149,7 +155,7 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
                 headers {
                     settings.username.takeIf { it.isNotEmpty() }?.let {
                         val auth = "${settings.username}:${settings.password}"
-                        val encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.toByteArray())
+                        val encodedAuth = Base64.encode(auth.encodeToByteArray())
                         append(HttpHeaders.Authorization, "Basic $encodedAuth")
                     }
                     sessionId?.let { append("X-Transmission-Session-Id", it) }
@@ -197,7 +203,7 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
         val files = torrentDetails?.files ?: emptyList()
         val fileStats = torrentDetails?.fileStats ?: emptyList()
 
-        Log.d(TAG, "getTorrentFiles: Received fileStats for torrent $torrentId: $fileStats")
+        Logger.d(TAG, "getTorrentFiles: Received fileStats for torrent $torrentId: $fileStats")
 
         return files.mapIndexed { index, file ->
             val stat = fileStats.getOrNull(index)
@@ -206,13 +212,13 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
             } else {
                 stat?.priority ?: 0 // Use priority if wanted, otherwise default to normal
             }
-            Log.d(TAG, "getTorrentFiles: File ${file.name} (index $index) wanted=${stat?.wanted}, priority=${stat?.priority} -> assignedPriority=$assignedPriority")
+            Logger.d(TAG, "getTorrentFiles: File ${file.name} (index $index) wanted=${stat?.wanted}, priority=${stat?.priority} -> assignedPriority=$assignedPriority")
             file.copy(priority = assignedPriority)
         }
     }
 
     suspend fun setFilePriorities(torrentId: Int, fileIndices: List<Int>, priority: Int): RpcResponse<Unit> {
-        Log.d(TAG, "Attempting to set file priorities for torrent $torrentId, files: $fileIndices, target priority: $priority")
+        Logger.d(TAG, "Attempting to set file priorities for torrent $torrentId, files: $fileIndices, target priority: $priority")
 
         val args = when (priority) {
             -1 -> TorrentSetArgs(
@@ -233,7 +239,7 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
             else -> throw IllegalArgumentException("Invalid priority value: $priority")
         }
         
-        Log.d(TAG, "Sending torrent-set with arguments: $args")
+        Logger.d(TAG, "Sending torrent-set with arguments: $args")
         return makeRpcCall("torrent-set", args)
     }
 

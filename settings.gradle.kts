@@ -28,3 +28,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "transmote2"
 include(":app")
+include(":shared")

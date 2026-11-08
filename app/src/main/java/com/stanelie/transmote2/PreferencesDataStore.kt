@@ -13,18 +13,6 @@ import kotlinx.coroutines.flow.map
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-data class ConnectionSettings(
-    val serverAddress: String = "",
-    val port: String = "",
-    val username: String = "",
-    val password: String = "",
-    val useSsl: Boolean = false,
-    val refreshFrequency: Int = 30,
-    val rssFeedUrl: String = "",
-    val webDownloadUrl: String = "",
-    val rssPollingIntervalHours: Int = 6
-)
-
 class PreferencesDataStore(private val context: Context) {
 
     private object PreferencesKeys {
