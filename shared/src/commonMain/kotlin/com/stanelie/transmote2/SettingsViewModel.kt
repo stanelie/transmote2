@@ -1,21 +1,16 @@
 package com.stanelie.transmote2
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 class SettingsViewModel(
-    private val preferencesDataStore: PreferencesDataStore,
-    private val appContext: Context
+    private val preferencesDataStore: PreferencesDataStore
 ) : ViewModel() {
 
     private val _serverAddress = MutableStateFlow("")
@@ -89,35 +84,13 @@ class SettingsViewModel(
                 webDownloadUrl = _webDownloadUrl.value,
                 rssPollingIntervalHours = intervalHours
             )
-            scheduleRssWork(appContext, intervalHours)
+            BackgroundPolling.schedule(intervalHours)
         }
     }
 
     companion object {
-        fun scheduleRssWork(context: Context, intervalHours: Int) {
-            val workManager = WorkManager.getInstance(context)
-            if (intervalHours <= 0) {
-                workManager.cancelUniqueWork(TorrentCheckWorker.WORKER_NAME)
-                return
-            }
-            val request = PeriodicWorkRequestBuilder<TorrentCheckWorker>(
-                intervalHours.toLong(), TimeUnit.HOURS
-            ).build()
-            workManager.enqueueUniquePeriodicWork(
-                TorrentCheckWorker.WORKER_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
-                request
-            )
-        }
-
-        fun provideFactory(
-            preferencesDataStore: PreferencesDataStore,
-            appContext: Context
-        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return SettingsViewModel(preferencesDataStore, appContext) as T
-            }
+        fun provideFactory(preferencesDataStore: PreferencesDataStore) = viewModelFactory {
+            initializer { SettingsViewModel(preferencesDataStore) }
         }
     }
 }

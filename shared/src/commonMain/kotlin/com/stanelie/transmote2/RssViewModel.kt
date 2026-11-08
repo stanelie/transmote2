@@ -1,8 +1,8 @@
 package com.stanelie.transmote2
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,8 +12,7 @@ import kotlinx.coroutines.launch
 
 class RssViewModel(
     private val preferencesDataStore: PreferencesDataStore,
-    private val rssReader: RssReader,
-    private val appContext: Context
+    private val rssReader: RssReader
 ) : ViewModel() {
 
     private val _rssItems = MutableStateFlow<List<RssItem>>(emptyList())
@@ -31,7 +30,7 @@ class RssViewModel(
     private val _seenItemGuids = MutableStateFlow<Set<String>>(emptySet())
     val seenItemGuids: StateFlow<Set<String>> = _seenItemGuids.asStateFlow()
 
-    private val sharedPreferences = appContext.getSharedPreferences(RssPrefs.PREFS_NAME, Context.MODE_PRIVATE)
+    private val seenStore = StringSetStore(RssPrefs.PREFS_NAME)
     internal var initialGuids: Set<String> = emptySet() // Changed from private to internal
 
     init {
@@ -40,7 +39,7 @@ class RssViewModel(
     }
 
     private fun loadSeenItems() {
-        val guids = sharedPreferences.getStringSet(RssPrefs.SEEN_GUIDS_KEY, emptySet()) ?: emptySet()
+        val guids = seenStore.getStringSet(RssPrefs.SEEN_GUIDS_KEY)
         _seenItemGuids.value = guids
         initialGuids = guids // Store the initial "seen" list
     }
@@ -78,21 +77,16 @@ class RssViewModel(
     }
 
     private fun markAllAsSeen(guids: List<String>) {
-        val allGuids = sharedPreferences.getStringSet(RssPrefs.SEEN_GUIDS_KEY, emptySet()) ?: emptySet()
-        val newSeenGuids = allGuids + guids
-        sharedPreferences.edit().putStringSet(RssPrefs.SEEN_GUIDS_KEY, newSeenGuids).apply()
+        val allGuids = seenStore.getStringSet(RssPrefs.SEEN_GUIDS_KEY)
+        seenStore.putStringSet(RssPrefs.SEEN_GUIDS_KEY, allGuids + guids)
     }
 
     companion object {
         fun provideFactory(
             preferencesDataStore: PreferencesDataStore,
-            rssReader: RssReader,
-            appContext: Context
-        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return RssViewModel(preferencesDataStore, rssReader, appContext) as T
-            }
+            rssReader: RssReader
+        ) = viewModelFactory {
+            initializer { RssViewModel(preferencesDataStore, rssReader) }
         }
     }
 }
