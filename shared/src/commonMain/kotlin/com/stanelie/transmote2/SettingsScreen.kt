@@ -145,6 +145,26 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, autoCorrect = false),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // iOS only: the APNs token the push server needs. Android
+                // never registers for APNs, so this stays hidden there.
+                val pushToken by PushRegistration.token.collectAsState()
+                val pushError by PushRegistration.error.collectAsState()
+                if (pushToken != null || pushError != null) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Push notifications", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = pushToken ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(if (pushError != null) "Device token (unavailable)" else "Device token") },
+                        supportingText = {
+                            Text(pushError ?: "Copy this into the push server's config.")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
             Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.ime))
         }

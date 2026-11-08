@@ -122,5 +122,18 @@ fun App(onReady: suspend (NavController, MainViewModel) -> Unit = { _, _ -> }) {
             }
             onReady(navController, mainViewModel)
         }
+
+        // A tapped push notification asks for a particular screen.
+        val pendingScreen by PushRouting.pendingScreen.collectAsState()
+        LaunchedEffect(pendingScreen) {
+            val target = pendingScreen ?: return@LaunchedEffect
+            while (runCatching { navController.graph }.isFailure) {
+                withFrameNanos {}
+            }
+            navController.navigate(target) {
+                popUpTo(Routes.MAIN_SCREEN) { inclusive = target == Routes.MAIN_SCREEN }
+            }
+            PushRouting.consume()
+        }
     }
 }

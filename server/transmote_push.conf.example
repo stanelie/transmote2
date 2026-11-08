@@ -1,0 +1,17 @@
+[apns]
+; Create at developer.apple.com > Certificates, Identifiers & Profiles > Keys
+;   + > Apple Push Notifications service (APNs) > download the .p8 ONCE
+key_file = /etc/transmote/AuthKey_XXXXXXXXXX.p8
+key_id   = XXXXXXXXXX
+team_id  = TTT8628BZJ
+topic    = ca.exmachina.transmote2
+
+; "development" matches a Debug build installed from Xcode.
+; Switch to "production" for a TestFlight or App Store build - a token from
+; one environment is rejected by the other, which is the usual cause of
+; BadDeviceToken.
+environment = development
+
+[device]
+; From Transmote's Settings screen, under "Push notifications".
+tokens = paste_the_64_hex_character_token_here

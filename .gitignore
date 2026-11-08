@@ -35,3 +35,8 @@ google-services.json
 iosApp/build/
 *.xcuserstate
 xcuserdata/
+
+# push server secrets / local state (never commit: public repo)
+server/transmote_push.conf
+server/rss_seen.txt
+server/.apns_jwt
