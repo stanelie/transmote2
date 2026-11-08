@@ -1,15 +1,49 @@
 import SwiftUI
 import UIKit
 import UserNotifications
+import BackgroundTasks
 import Shared
 
+let backgroundRefreshId = "ca.exmachina.transmote2.refresh"
+
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+
+    /// iOS decides when this actually runs - the interval below is a hint,
+    /// not a schedule. Reschedule on every fire, or it never runs again.
+    func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: backgroundRefreshId)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            PushRegistration.shared.onError(message: "Background refresh not scheduled: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleRefresh(task: BGAppRefreshTask) {
+        scheduleBackgroundRefresh()          // always queue the next one first
+
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+        BackgroundRefreshKt.runBackgroundCheck { posted, error in
+            // Reporting that work produced something makes iOS more willing
+            // to grant future slots.
+            task.setTaskCompleted(success: error == nil && (posted?.intValue ?? 0) >= 0)
+        }
+    }
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+
+        // Must be registered before didFinishLaunching returns.
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundRefreshId, using: nil) { task in
+            guard let refresh = task as? BGAppRefreshTask else { return }
+            self.handleRefresh(task: refresh)
+        }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
                 PushRegistration.shared.onError(message: "Authorization failed: \(error.localizedDescription)")
@@ -23,7 +57,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 application.registerForRemoteNotifications()
             }
         }
+        scheduleBackgroundRefresh()
         return true
+    }
+
+    /// Queue the next refresh whenever the app leaves the foreground.
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        scheduleBackgroundRefresh()
     }
 
     func application(

@@ -97,5 +97,9 @@ if __name__ == "__main__":
         print("warning: TRANSMOTE_SECRET unset - the endpoint is unauthenticated",
               file=sys.stderr)
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8099
-    print(f"listening on 127.0.0.1:{port}", flush=True)
-    HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    # Default to loopback (for use behind a reverse proxy). Set
+    # TRANSMOTE_BIND=0.0.0.0 to serve a private overlay such as ZeroTier
+    # directly, where the secret path is the only guard.
+    bind = os.environ.get("TRANSMOTE_BIND", "127.0.0.1")
+    print(f"listening on {bind}:{port}", flush=True)
+    HTTPServer((bind, port), Handler).serve_forever()
