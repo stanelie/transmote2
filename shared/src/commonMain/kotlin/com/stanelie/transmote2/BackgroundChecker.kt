@@ -42,9 +42,24 @@ object BackgroundChecker {
             val torrents = TransmissionRpcClient(settings).getTorrents()
             val allIds = torrents.map { it.id.toString() }.toSet()
 
+            val stored = store.getStringSet(NOTIFIED_IDS_KEY)
+            val finishedNow = torrents
+                .filter { it.percentDone >= 1.0 && it.isFinished }
+                .map { it.id.toString() }
+                .toSet()
+
+            // First ever check: adopt whatever is already finished without
+            // notifying. Otherwise a library of completed torrents would fire
+            // one notification each the first time this runs.
+            if (stored.isEmpty()) {
+                store.putStringSet(NOTIFIED_IDS_KEY, finishedNow)
+                Logger.d(TAG, "first torrent check, adopted ${finishedNow.size} finished silently")
+                return 0
+            }
+
             // Intersecting first drops ids for torrents that no longer exist,
             // so removing and re-adding a torrent notifies again.
-            val synced = store.getStringSet(NOTIFIED_IDS_KEY).intersect(allIds)
+            val synced = stored.intersect(allIds)
             val newlyCompleted = torrents.filter {
                 it.percentDone >= 1.0 && it.isFinished && it.id.toString() !in synced
             }

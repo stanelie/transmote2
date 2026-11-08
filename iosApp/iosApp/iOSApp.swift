@@ -66,6 +66,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         scheduleBackgroundRefresh()
     }
 
+    /// Catch up on whatever happened while the app was away. iOS may never
+    /// have granted a background slot, so without this the user could learn
+    /// nothing until they scrolled the list themselves.
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        BackgroundRefreshKt.runBackgroundCheck { _, error in
+            if let error = error {
+                NSLog("foreground catch-up failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
