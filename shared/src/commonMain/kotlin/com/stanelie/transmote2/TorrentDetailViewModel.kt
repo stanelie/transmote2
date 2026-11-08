@@ -1,14 +1,14 @@
 package com.stanelie.transmote2
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.net.URLEncoder
 
 class TorrentDetailViewModel(private val torrentId: Int, private val preferencesDataStore: PreferencesDataStore) : ViewModel() {
 
@@ -168,7 +168,7 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
         // Encode each path segment individually
         val encodedPath = fileName.split('/')
             .joinToString("/") { part ->
-                URLEncoder.encode(part, "UTF-8").replace("+", "%20")
+                encodeUrlPathSegment(part)
             }
             
         return correctedBaseUrl + encodedPath
@@ -176,11 +176,8 @@ class TorrentDetailViewModel(private val torrentId: Int, private val preferences
 
 
     companion object {
-        fun provideFactory(torrentId: Int, preferencesDataStore: PreferencesDataStore): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return TorrentDetailViewModel(torrentId, preferencesDataStore) as T
-            }
+        fun provideFactory(torrentId: Int, preferencesDataStore: PreferencesDataStore) = viewModelFactory {
+            initializer { TorrentDetailViewModel(torrentId, preferencesDataStore) }
         }
     }
 }

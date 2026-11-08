@@ -1,7 +1,8 @@
 package com.stanelie.transmote2
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -153,11 +154,10 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
     }
 
     companion object {
-        fun provideFactory(preferencesDataStore: PreferencesDataStore): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return MainViewModel(preferencesDataStore) as T
-            }
+        // Class<T> is JVM-only; viewModelFactory/initializer are the
+        // multiplatform equivalent.
+        fun provideFactory(preferencesDataStore: PreferencesDataStore) = viewModelFactory {
+            initializer { MainViewModel(preferencesDataStore) }
         }
     }
 }
