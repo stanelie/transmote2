@@ -108,7 +108,7 @@ class TorrentMonitorService : Service() {
 
     private fun startMonitoring() {
         serviceScope.launch {
-            val preferencesDataStore = PreferencesDataStore(applicationContext)
+            val preferencesDataStore = PreferencesDataStore()
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val notificationHelper = NotificationHelper(applicationContext)
 

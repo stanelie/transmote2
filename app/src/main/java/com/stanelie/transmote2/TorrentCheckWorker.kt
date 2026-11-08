@@ -21,7 +21,7 @@ class TorrentCheckWorker(appContext: Context, workerParams: WorkerParameters) :
         notificationHelper.createNotificationChannel()
 
         return try {
-            val settings = PreferencesDataStore(applicationContext).settingsFlow.first()
+            val settings = PreferencesDataStore().settingsFlow.first()
             if (settings.rssFeedUrl.isBlank()) {
                 Log.d(TAG, "RSS URL not configured, skipping.")
                 return Result.success()

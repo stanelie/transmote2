@@ -1,19 +1,33 @@
 package com.stanelie.transmote2
 
-import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okio.Path.Companion.toPath
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+/**
+ * Absolute path of the preferences file.
+ *
+ * The Android actual MUST keep <filesDir>/datastore/settings.preferences_pb,
+ * which is where the Android-only `preferencesDataStore(name = "settings")`
+ * delegate used to write it. Changing it would silently lose the settings of
+ * every existing install.
+ */
+expect fun settingsFilePath(): String
 
-class PreferencesDataStore(private val context: Context) {
+private val sharedSettingsStore: DataStore<Preferences> by lazy {
+    PreferenceDataStoreFactory.createWithPath(produceFile = { settingsFilePath().toPath() })
+}
+
+class PreferencesDataStore(
+    private val dataStore: DataStore<Preferences> = sharedSettingsStore
+) {
 
     private object PreferencesKeys {
         val SERVER_ADDRESS = stringPreferencesKey("server_address")
@@ -27,7 +41,7 @@ class PreferencesDataStore(private val context: Context) {
         val RSS_POLLING_INTERVAL_HOURS = intPreferencesKey("rss_polling_interval_hours")
     }
 
-    val settingsFlow: Flow<ConnectionSettings> = context.dataStore.data
+    val settingsFlow: Flow<ConnectionSettings> = dataStore.data
         .map { preferences ->
             ConnectionSettings(
                 serverAddress = preferences[PreferencesKeys.SERVER_ADDRESS] ?: "",
@@ -53,7 +67,7 @@ class PreferencesDataStore(private val context: Context) {
         webDownloadUrl: String,
         rssPollingIntervalHours: Int
     ) {
-        context.dataStore.edit { preferences ->
+        dataStore.edit { preferences ->
             preferences[PreferencesKeys.SERVER_ADDRESS] = serverAddress
             preferences[PreferencesKeys.PORT] = port
             preferences[PreferencesKeys.USERNAME] = username

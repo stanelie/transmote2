@@ -27,6 +27,8 @@ kotlin {
             api(compose.ui)
             api(libs.jetbrains.lifecycle.viewmodel.compose)
             api(libs.jetbrains.navigation.compose)
+            api(libs.androidx.datastore.preferences.core)
+            implementation(libs.okio)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)

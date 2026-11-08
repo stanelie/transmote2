@@ -10,13 +10,14 @@ class MainApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AndroidApp.init(this)
         TorrentMonitorService.start(this)
         scheduleRssWorkFromSettings()
     }
 
     private fun scheduleRssWorkFromSettings() {
         CoroutineScope(Dispatchers.IO).launch {
-            val settings = PreferencesDataStore(applicationContext).settingsFlow.first()
+            val settings = PreferencesDataStore().settingsFlow.first()
             SettingsViewModel.scheduleRssWork(applicationContext, settings.rssPollingIntervalHours)
         }
     }

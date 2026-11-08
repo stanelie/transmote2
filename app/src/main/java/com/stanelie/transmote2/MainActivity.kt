@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
             Transmote2Theme {
                 val navController = rememberNavController()
                 val context = LocalContext.current
-                val preferencesDataStore = remember { PreferencesDataStore(context) }
+                val preferencesDataStore = remember { PreferencesDataStore() }
                 val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.provideFactory(preferencesDataStore, context.applicationContext))
                 val mainViewModel: MainViewModel = viewModel(factory = MainViewModel.provideFactory(preferencesDataStore))
                 val rssViewModel: RssViewModel = viewModel(factory = RssViewModel.provideFactory(preferencesDataStore, RssReader(), context.applicationContext))
