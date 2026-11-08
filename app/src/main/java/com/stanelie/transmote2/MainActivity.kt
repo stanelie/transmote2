@@ -48,14 +48,6 @@ import com.stanelie.transmote2.ui.theme.Transmote2Theme
 import java.io.IOException
 
 // Define routes for navigation
-object Routes {
-    const val MAIN_SCREEN = "main_screen"
-    const val SETTINGS_SCREEN = "settings_screen"
-    const val RSS_SCREEN = "rss_screen"
-    const val TORRENT_DETAIL_SCREEN = "torrent_detail_screen/{torrentId}"
-    fun torrentDetailRoute(torrentId: Int) = "torrent_detail_screen/$torrentId"
-}
-
 class MainActivity : ComponentActivity() {
 
     private val requestNotificationPermission =

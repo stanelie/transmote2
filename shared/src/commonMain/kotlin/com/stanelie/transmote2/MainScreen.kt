@@ -1,6 +1,7 @@
 package com.stanelie.transmote2
 
-import android.app.Application
+import org.jetbrains.compose.ui.tooling.preview.Preview
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -13,9 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -281,7 +280,7 @@ fun TorrentItem(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun TorrentItemPreview() {
     val sampleTorrent = TorrentInfo(
@@ -313,15 +312,5 @@ fun TorrentItemPreview() {
             onRenameClick = {},
             onMenuVisibilityChanged = {}
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainScreenPreview() {
-    Transmote2Theme {
-        val navController = rememberNavController()
-        // For preview, you might want to create a mock MainViewModel or just show a message
-        Text("Preview of MainScreen with data requires a ViewModel. Please run the app.")
     }
 }

@@ -25,6 +25,7 @@ kotlin {
             api(compose.foundation)
             api(compose.material3)
             api(compose.ui)
+            implementation(compose.components.uiToolingPreview)
             api(libs.jetbrains.lifecycle.viewmodel.compose)
             api(libs.jetbrains.navigation.compose)
             api(libs.androidx.datastore.preferences.core)

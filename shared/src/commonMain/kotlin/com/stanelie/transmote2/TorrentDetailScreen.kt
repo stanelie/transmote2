@@ -2,8 +2,6 @@ package com.stanelie.transmote2
 
 import com.stanelie.transmote2.ui.AppIcons
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -19,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -206,7 +203,6 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
     val expandedNodePaths = remember { mutableStateOf(emptySet<String>()) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     var renameSegments by remember { mutableStateOf<List<RenameSegment>>(emptyList()) }
     var renameTemplate by remember { mutableStateOf("") }
@@ -284,8 +280,7 @@ fun TorrentDetailScreen(navController: NavController, torrentDetailViewModel: To
                                     if (selectedFile != null) {
                                         val url = torrentDetailViewModel.createDownloadUrl(selectedFile.name)
                                         if (url != null) {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                            context.startActivity(intent)
+                                            openUrlExternally(url)
                                         }
                                     }
                                 }
