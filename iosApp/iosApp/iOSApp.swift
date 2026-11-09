@@ -66,6 +66,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         scheduleBackgroundRefresh()
     }
 
+    /// Safari (or anything else) opening a magnet: link.
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        PendingTorrentLink.shared.offer(url: url.absoluteString)
+        return true
+    }
+
     /// Catch up on whatever happened while the app was away. iOS may never
     /// have granted a background slot, so without this the user could learn
     /// nothing until they scrolled the list themselves.
