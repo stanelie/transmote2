@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -87,6 +88,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
                 _connectionStatus.value = "Not configured"
                 _torrents.value = emptyList()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _connectionStatus.value = "Error: ${e.message}"
             _torrents.value = emptyList()
@@ -102,6 +105,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             try {
                 transmissionRpcClient?.startTorrents(listOf(torrentId))
                 performFetch() // Refresh list after action
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }
@@ -113,6 +118,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             try {
                 transmissionRpcClient?.stopTorrents(listOf(torrentId))
                 performFetch() // Refresh list after action
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }
@@ -124,6 +131,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             try {
                 transmissionRpcClient?.removeTorrents(listOf(torrentId), deleteData)
                 performFetch() // Refresh list after action
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }
@@ -135,6 +144,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
             try {
                 transmissionRpcClient?.renameTorrent(torrentId, currentName, newName)
                 performFetch()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }
@@ -147,6 +158,8 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
                 transmissionRpcClient?.addTorrent(magnetOrBase64)
                 performFetch() // Refresh list after adding
                 _scrollToTopEvent.tryEmit(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _connectionStatus.value = "Error: ${e.message}"
             }

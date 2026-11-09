@@ -1,5 +1,6 @@
 package com.stanelie.transmote2
 
+import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.headers
@@ -14,6 +15,7 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.SerialName
@@ -129,10 +131,23 @@ data class TorrentRenameArgs(
 
 class TransmissionRpcClient(private val settings: ConnectionSettings) {
 
-    private val client = createHttpClient {
+    private fun newClient(): HttpClient = createHttpClient {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
         }
+    }
+
+    // Rebuildable on purpose. On iOS this wraps an NSURLSession, which can be
+    // left permanently unusable after a network change or a long suspend -
+    // every later request then fails the same way and only restarting the app
+    // clears it. resetTransport() is the in-app equivalent of that restart.
+    private var client: HttpClient = newClient()
+
+    private fun resetTransport() {
+        Logger.d(TAG, "rebuilding HTTP transport after a connection failure")
+        runCatching { client.close() }
+        client = newClient()
+        sessionId = null
     }
 
     private var sessionId: String? = null
@@ -148,36 +163,58 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
         val requestBody = RpcRequest(method, arguments)
         val rpcUrl = buildRpcUrl()
 
-        for (attempt in 1..2) {
-            val response: HttpResponse = client.post(rpcUrl) {
-                contentType(ContentType.Application.Json)
-                setBody(requestBody)
-                headers {
-                    settings.username.takeIf { it.isNotEmpty() }?.let {
-                        val auth = "${settings.username}:${settings.password}"
-                        val encodedAuth = Base64.encode(auth.encodeToByteArray())
-                        append(HttpHeaders.Authorization, "Basic $encodedAuth")
+        var lastTransportFailure: Exception? = null
+
+        // 3 attempts: one spare for a stale session id, one for rebuilding a
+        // dead transport.
+        for (attempt in 1..3) {
+            val response: HttpResponse = try {
+                client.post(rpcUrl) {
+                    contentType(ContentType.Application.Json)
+                    setBody(requestBody)
+                    headers {
+                        settings.username.takeIf { it.isNotEmpty() }?.let {
+                            val auth = "${settings.username}:${settings.password}"
+                            val encodedAuth = Base64.encode(auth.encodeToByteArray())
+                            append(HttpHeaders.Authorization, "Basic $encodedAuth")
+                        }
+                        sessionId?.let { append("X-Transmission-Session-Id", it) }
                     }
-                    sessionId?.let { append("X-Transmission-Session-Id", it) }
                 }
+            } catch (e: CancellationException) {
+                throw e                       // never swallow cancellation
+            } catch (e: Exception) {
+                lastTransportFailure = e
+                if (attempt < 3) {
+                    resetTransport()
+                    continue
+                }
+                throw IllegalStateException(
+                    "${e::class.simpleName}: ${e.message ?: "connection failed"}", e
+                )
             }
 
-            if (response.status == HttpStatusCode.Conflict && attempt == 1) {
-                sessionId = response.headers["X-Transmission-Session-Id"]
-                if (sessionId != null) {
-                    continue // Retry the loop
-                } else {
-                    throw IllegalStateException("Failed to retrieve X-Transmission-Session-Id on Conflict")
+            // Transmission answers 409 with a fresh session id whenever the
+            // old one expires. Refresh on any attempt but the last.
+            if (response.status == HttpStatusCode.Conflict && attempt < 3) {
+                val refreshed = response.headers["X-Transmission-Session-Id"]
+                if (refreshed != null) {
+                    sessionId = refreshed
+                    continue
                 }
+                throw IllegalStateException("Got 409 with no X-Transmission-Session-Id header")
             }
 
             if (!response.status.isSuccess()) {
-                throw Exception("RPC call failed with status: ${response.status} on attempt $attempt")
+                throw Exception("RPC call failed with status: ${response.status}")
             }
 
-            return response.body() // Success, deserialize and return
+            return response.body()
         }
-        
+
+        lastTransportFailure?.let {
+            throw IllegalStateException("${it::class.simpleName}: ${it.message}", it)
+        }
         throw IllegalStateException("RPC call failed after multiple attempts")
     }
 
