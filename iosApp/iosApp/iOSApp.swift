@@ -4,6 +4,33 @@ import UserNotifications
 import BackgroundTasks
 import Shared
 
+/// Hand a magnet link or a .torrent file to the shared layer.
+///
+/// Called from SwiftUI's onOpenURL. The UIApplicationDelegate's
+/// application(_:open:options:) is NOT reliably invoked under the SwiftUI
+/// App lifecycle - SwiftUI intercepts URL opens and delivers them to the
+/// scene instead - so routing through onOpenURL is what actually works.
+func handleIncomingURL(_ url: URL) {
+    guard url.isFileURL else {
+        PendingTorrentLink.shared.offerMagnet(url: url.absoluteString)
+        return
+    }
+    // A file opened from elsewhere arrives security-scoped, and iOS copies
+    // it into Inbox/ which we should not leave litter in.
+    let scoped = url.startAccessingSecurityScopedResource()
+    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+    do {
+        let data = try Data(contentsOf: url)
+        PendingTorrentLink.shared.offerMetainfo(base64: data.base64EncodedString())
+    } catch {
+        NSLog("could not read .torrent at \(url.lastPathComponent): \(error.localizedDescription)")
+        return
+    }
+    if url.path.contains("/Inbox/") {
+        try? FileManager.default.removeItem(at: url)
+    }
+}
+
 let backgroundRefreshId = "ca.exmachina.transmote2.refresh"
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -66,35 +93,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         scheduleBackgroundRefresh()
     }
 
-    /// Safari, Files or a share sheet handing us a magnet: link or a
-    /// .torrent file.
-    func application(
-        _ app: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        guard url.isFileURL else {
-            PendingTorrentLink.shared.offerMagnet(url: url.absoluteString)
-            return true
-        }
-
-        // A file opened from elsewhere arrives security-scoped, and iOS
-        // copies it into Inbox/ which we should not leave litter in.
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let data = try Data(contentsOf: url)
-            PendingTorrentLink.shared.offerMetainfo(base64: data.base64EncodedString())
-        } catch {
-            NSLog("could not read .torrent at \(url.lastPathComponent): \(error.localizedDescription)")
-            return false
-        }
-        if url.path.contains("/Inbox/") {
-            try? FileManager.default.removeItem(at: url)
-        }
-        return true
-    }
-
     /// Catch up on whatever happened while the app was away. iOS may never
     /// have granted a background slot, so without this the user could learn
     /// nothing until they scrolled the list themselves.
@@ -151,6 +149,10 @@ struct iOSApp: App {
         WindowGroup {
             ContentView()
                 .ignoresSafeArea(.all)
+                .onOpenURL { url in
+                    NSLog("onOpenURL: \(url.scheme ?? "?")")
+                    handleIncomingURL(url)
+                }
         }
     }
 }
