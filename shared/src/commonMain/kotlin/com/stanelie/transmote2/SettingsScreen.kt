@@ -151,10 +151,15 @@ fun SettingsScreen(navController: NavController, settingsViewModel: SettingsView
                 OutlinedTextField(
                     value = pushServerUrl,
                     onValueChange = { settingsViewModel.updatePushServerUrl(it) },
-                    label = { Text("Push server URL") },
+                    label = { Text("Push server URL - NOT ACTIVE YET") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("Blank disables push notifications.") },
+                    supportingText = {
+                        Text(
+                            "TODO: RSS push. Nothing uses this yet - setting it has no " +
+                                "effect. Download-complete notifications do not need it."
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(autoCorrect = false)
                 )
 

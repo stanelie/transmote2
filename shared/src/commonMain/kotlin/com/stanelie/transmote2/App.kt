@@ -123,14 +123,14 @@ fun App(onReady: suspend (NavController, MainViewModel) -> Unit = { _, _ -> }) {
             onReady(navController, mainViewModel)
         }
 
-        // A magnet link opened from outside the app.
-        val pendingLink by PendingTorrentLink.link.collectAsState()
+        // A magnet link or .torrent opened from outside the app.
+        val pendingLink by PendingTorrentLink.payload.collectAsState()
         LaunchedEffect(pendingLink) {
-            val magnet = pendingLink ?: return@LaunchedEffect
+            val payload = pendingLink ?: return@LaunchedEffect
             while (runCatching { navController.graph }.isFailure) {
                 withFrameNanos {}
             }
-            mainViewModel.addTorrent(magnet)
+            mainViewModel.addTorrent(payload)
             navController.navigate(Routes.MAIN_SCREEN) {
                 popUpTo(Routes.MAIN_SCREEN) { inclusive = true }
             }

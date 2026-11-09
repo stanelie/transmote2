@@ -66,13 +66,32 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         scheduleBackgroundRefresh()
     }
 
-    /// Safari (or anything else) opening a magnet: link.
+    /// Safari, Files or a share sheet handing us a magnet: link or a
+    /// .torrent file.
     func application(
         _ app: UIApplication,
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
-        PendingTorrentLink.shared.offer(url: url.absoluteString)
+        guard url.isFileURL else {
+            PendingTorrentLink.shared.offerMagnet(url: url.absoluteString)
+            return true
+        }
+
+        // A file opened from elsewhere arrives security-scoped, and iOS
+        // copies it into Inbox/ which we should not leave litter in.
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            PendingTorrentLink.shared.offerMetainfo(base64: data.base64EncodedString())
+        } catch {
+            NSLog("could not read .torrent at \(url.lastPathComponent): \(error.localizedDescription)")
+            return false
+        }
+        if url.path.contains("/Inbox/") {
+            try? FileManager.default.removeItem(at: url)
+        }
         return true
     }
 

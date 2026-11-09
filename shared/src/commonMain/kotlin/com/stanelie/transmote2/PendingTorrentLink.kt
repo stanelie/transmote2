@@ -5,27 +5,40 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * A magnet link handed to the app from outside - Safari on iOS, an Intent on
- * Android. App() picks it up, adds it, and clears it.
+ * A torrent handed to the app from outside - a magnet link or a .torrent
+ * file opened from Safari, Files or a share sheet.
  *
- * Held here rather than passed directly because the link can arrive before
- * the UI exists (a cold launch from a tapped link), so it has to wait for a
- * composition that can act on it.
+ * The payload is whatever MainViewModel.addTorrent expects: a "magnet:" URI,
+ * or the base64 of a .torrent file's bytes, which it sends as metainfo.
+ *
+ * Held here rather than passed straight to the ViewModel because an opened
+ * link can cold-launch the app, so it may arrive before any composition
+ * exists to act on it.
  */
 object PendingTorrentLink {
-    private val _link = MutableStateFlow<String?>(null)
-    val link: StateFlow<String?> = _link.asStateFlow()
+    private val _payload = MutableStateFlow<String?>(null)
+    val payload: StateFlow<String?> = _payload.asStateFlow()
 
-    fun offer(url: String) {
+    fun offerMagnet(url: String) {
         if (url.startsWith("magnet:", ignoreCase = true)) {
             Logger.d("PendingTorrentLink", "received magnet link")
-            _link.value = url
+            _payload.value = url
         } else {
             Logger.e("PendingTorrentLink", "ignoring non-magnet url")
         }
     }
 
+    /** Base64 of a .torrent file's bytes. */
+    fun offerMetainfo(base64: String) {
+        if (base64.isNotBlank()) {
+            Logger.d("PendingTorrentLink", "received .torrent metainfo (${base64.length} b64 chars)")
+            _payload.value = base64
+        } else {
+            Logger.e("PendingTorrentLink", "ignoring empty .torrent")
+        }
+    }
+
     fun consume() {
-        _link.value = null
+        _payload.value = null
     }
 }
