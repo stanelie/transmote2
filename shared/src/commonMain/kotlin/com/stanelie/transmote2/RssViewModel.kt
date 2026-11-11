@@ -27,21 +27,28 @@ class RssViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // The baseline the "new" highlight is drawn against: what had already been
+    // seen when this visit to the screen began. A refresh deliberately does
+    // NOT move it, so items cannot grey out under the user mid-scroll - but it
+    // is re-read on every visit, so leaving the screen and coming back does
+    // clear the highlight.
     private val _seenItemGuids = MutableStateFlow<Set<String>>(emptySet())
     val seenItemGuids: StateFlow<Set<String>> = _seenItemGuids.asStateFlow()
 
     private val seenStore = StringSetStore(RssPrefs.PREFS_NAME)
-    internal var initialGuids: Set<String> = emptySet() // Changed from private to internal
 
     init {
-        loadSeenItems()
-        // Removed fetchRssFeed() from init to avoid fetching on app start
+        startVisit()
+        // Deliberately no fetch here: the feed is only fetched from its screen.
     }
 
-    private fun loadSeenItems() {
-        val guids = seenStore.getStringSet(RssPrefs.SEEN_GUIDS_KEY)
-        _seenItemGuids.value = guids
-        initialGuids = guids // Store the initial "seen" list
+    /**
+     * Take the stored seen-set as this visit's baseline. Must run before
+     * refreshFeed, which marks everything it fetches as seen - afterwards
+     * there would be nothing left to highlight.
+     */
+    fun startVisit() {
+        _seenItemGuids.value = seenStore.getStringSet(RssPrefs.SEEN_GUIDS_KEY)
     }
 
     fun refreshFeed() {
@@ -52,19 +59,10 @@ class RssViewModel(
                 val rssUrl = preferencesDataStore.settingsFlow.first().rssFeedUrl
                 if (rssUrl.isNotBlank()) {
                     val items = rssReader.fetchRssItems(rssUrl)
-                    // New items are those not in the initial "seen" list
-                    val newItemsGuids = items.map { it.guid }.toSet() - initialGuids
-                    val currentSeenGuids = _seenItemGuids.value
-                    
                     _rssItems.value = items
-                    
-                    // Mark all current items as seen for the *next* visit
+                    // Seen as of the *next* visit. _seenItemGuids is left
+                    // alone, so this fetch does not erase its own highlight.
                     markAllAsSeen(items.map { it.guid })
-                    
-                    // But for this view, restore the original "seen" status
-                    // so that only newly fetched items appear as "new"
-                    _seenItemGuids.value = currentSeenGuids + newItemsGuids
-
                 } else {
                     _error.value = "RSS Feed URL is not configured in settings."
                 }

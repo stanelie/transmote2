@@ -28,8 +28,10 @@ fun RssScreen(
 
     val listState = rememberLazyListState()
 
-    // Trigger the initial refresh when the screen is first composed
+    // Baseline first, then fetch: refreshFeed marks everything it fetches as
+    // seen, so reading the stored set afterwards would leave nothing new.
     LaunchedEffect(Unit) {
+        rssViewModel.startVisit()
         rssViewModel.refreshFeed()
     }
 
@@ -57,9 +59,10 @@ fun RssScreen(
                     .padding(horizontal = 16.dp)
             ) {
                 items(rssItems) { item ->
-                    // An item is "new" if its GUID was not in the set of seen items
-                    // that was loaded when the ViewModel was created.
-                    val isNew = !rssViewModel.initialGuids.contains(item.guid)
+                    // "New" means: not yet seen as of the moment this visit
+                    // began. Read from the StateFlow, not a plain field, or
+                    // the list would not recompose when the baseline moves.
+                    val isNew = !seenItemGuids.contains(item.guid)
                     RssItemView(
                         item = item,
                         isNew = isNew,
