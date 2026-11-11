@@ -37,6 +37,11 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<!-- Export compliance. The app's only cryptography is HTTPS/TLS through
+	     the OS, which is exempt, so every upload would otherwise stop in App
+	     Store Connect waiting for this answer before it can be distributed. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleShortVersionString</key>
 	<string>1.8</string>
 	<key>CFBundleURLTypes</key>
