@@ -106,9 +106,27 @@ def load():
     return apns, tokens
 
 
+def post(host, auth, topic, token, body_json):
+    proc = subprocess.run([
+        "curl", "--http2", "--silent", "--show-error",
+        "--max-time", "15",
+        "--write-out", "\n%{http_code}",
+        "--header", f"authorization: bearer {auth}",
+        "--header", f"apns-topic: {topic}",
+        "--header", "apns-push-type: alert",
+        "--header", "apns-priority: 10",
+        "--data", body_json,
+        f"{host}/3/device/{token}",
+    ], capture_output=True, text=True)
+    out = proc.stdout.rsplit("\n", 1)
+    return out[-1].strip(), out[0].strip()
+
+
 def send(title, body, screen=None):
     apns, tokens = load()
-    host = HOSTS[apns.get("environment", "development")]
+    configured = apns.get("environment", "development")
+    host = HOSTS[configured]
+    other = HOSTS["production" if configured == "development" else "development"]
     auth = make_jwt(apns)
 
     payload = {"aps": {"alert": {"title": title, "body": body},
@@ -119,27 +137,25 @@ def send(title, body, screen=None):
 
     failures = 0
     for token in tokens:
-        proc = subprocess.run([
-            "curl", "--http2", "--silent", "--show-error",
-            "--max-time", "15",
-            "--write-out", "\n%{http_code}",
-            "--header", f"authorization: bearer {auth}",
-            "--header", f"apns-topic: {apns['topic']}",
-            "--header", "apns-push-type: alert",
-            "--header", "apns-priority: 10",
-            "--data", body_json,
-            f"{host}/3/device/{token}",
-        ], capture_output=True, text=True)
+        code, detail = post(host, auth, apns["topic"], token, body_json)
 
-        out = proc.stdout.rsplit("\n", 1)
-        code = out[-1].strip()
-        detail = out[0].strip()
+        # A token is only valid in the environment that issued it: a build
+        # installed from Xcode gets a development token, one from TestFlight or
+        # the App Store gets a production token, and the wrong host answers
+        # 400 BadDeviceToken. Devices on both sides is the normal state while
+        # testing, so fall back to the other host rather than giving up - there
+        # is no way to tell the two kinds of token apart by looking at them.
+        if code == "400" and "BadDeviceToken" in detail:
+            code, detail = post(other, auth, apns["topic"], token, body_json)
+            if code == "200":
+                print(f"sent to {token[:12]}... (on the other environment)")
+                continue
+
         if code == "200":
             print(f"sent to {token[:12]}...")
         else:
             failures += 1
-            # 400 BadDeviceToken (usually a dev token sent to production, or
-            # the reverse), 403 bad key/team, 410 token no longer registered
+            # 403 bad key/team, 410 token no longer registered
             print(f"FAILED {token[:12]}... HTTP {code} {detail}", file=sys.stderr)
     return 1 if failures else 0
 

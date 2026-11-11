@@ -13,5 +13,9 @@ topic    = ca.exmachina.transmote2
 environment = development
 
 [device]
-; From Transmote's Settings screen, under "Push notifications".
+; From Transmote's Settings screen, under "Push notifications". One token per
+; device, separated by whitespace or newlines - every device gets every push.
+; Tokens from Xcode builds and from TestFlight belong to different APNs
+; environments, but they can be mixed freely here: a token the configured
+; environment rejects is retried against the other one automatically.
 tokens = paste_the_64_hex_character_token_here
