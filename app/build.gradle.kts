@@ -15,8 +15,8 @@ android {
         applicationId = "com.stanelie.transmote2"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.7"
+        versionCode = 7
+        versionName = "1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
