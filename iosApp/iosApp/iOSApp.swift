@@ -119,6 +119,33 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         PushRegistration.shared.onError(message: error.localizedDescription)
     }
 
+    /// A silent push - {"aps":{"content-available":1}}, no alert - is the
+    /// server saying "go and look", nothing more. Because it carries no
+    /// content, the sender needs to know neither the RSS feed URL nor which
+    /// Transmission host this device talks to: both stay in app settings,
+    /// where they belong, and the check runs here against them.
+    ///
+    /// This supplements BGAppRefreshTask, it does not replace it. iOS does
+    /// NOT deliver silent pushes to an app the user force-quit, holds them in
+    /// Low Power Mode, and throttles them, so a wake can simply never arrive.
+    /// We get roughly 30 seconds, and must call the handler within it.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        BackgroundRefreshKt.runBackgroundCheck { posted, error in
+            if let error = error {
+                NSLog("woken by push, but the check failed: \(error.localizedDescription)")
+                completionHandler(.failed)
+                return
+            }
+            // Claiming .newData only when something was actually posted is
+            // what keeps iOS willing to grant these wake-ups.
+            completionHandler((posted?.intValue ?? 0) > 0 ? .newData : .noData)
+        }
+    }
+
     /// Show notifications even while the app is in the foreground.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,

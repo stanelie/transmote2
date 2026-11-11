@@ -13,6 +13,7 @@ fall back to the conf's [device] tokens if that file is absent.
 
     transmote_push.py --title "Download complete" --body "Name.Of.Torrent"
     transmote_push.py --title "New in RSS" --body "Episode" --screen rss
+    transmote_push.py --silent          # wake the app to check for itself
 """
 
 import argparse
@@ -106,15 +107,15 @@ def load():
     return apns, tokens
 
 
-def post(host, auth, topic, token, body_json):
+def post(host, auth, topic, token, body_json, push_type="alert", priority="10"):
     proc = subprocess.run([
         "curl", "--http2", "--silent", "--show-error",
         "--max-time", "15",
         "--write-out", "\n%{http_code}",
         "--header", f"authorization: bearer {auth}",
         "--header", f"apns-topic: {topic}",
-        "--header", "apns-push-type: alert",
-        "--header", "apns-priority: 10",
+        "--header", f"apns-push-type: {push_type}",
+        "--header", f"apns-priority: {priority}",
         "--data", body_json,
         f"{host}/3/device/{token}",
     ], capture_output=True, text=True)
@@ -122,22 +123,34 @@ def post(host, auth, topic, token, body_json):
     return out[-1].strip(), out[0].strip()
 
 
-def send(title, body, screen=None):
+def send(title, body, screen=None, silent=False):
     apns, tokens = load()
     configured = apns.get("environment", "development")
     host = HOSTS[configured]
     other = HOSTS["production" if configured == "development" else "development"]
     auth = make_jwt(apns)
 
-    payload = {"aps": {"alert": {"title": title, "body": body},
-                       "sound": "default", "thread-id": "transmote"}}
+    if silent:
+        # content-available with no alert, sound or badge wakes the app for
+        # about 30 seconds without showing the user anything. The app then
+        # checks its own RSS feed and its own Transmission server and posts
+        # local notifications itself, so nothing here needs to know either.
+        # Apple requires push type "background" at priority 5; an alert-type
+        # or priority-10 background push is rejected or silently dropped.
+        payload = {"aps": {"content-available": 1}}
+        push_type, priority = "background", "5"
+    else:
+        payload = {"aps": {"alert": {"title": title, "body": body},
+                           "sound": "default", "thread-id": "transmote"}}
+        push_type, priority = "alert", "10"
     if screen:
         payload["screen"] = screen
     body_json = json.dumps(payload, separators=(",", ":"))
 
     failures = 0
     for token in tokens:
-        code, detail = post(host, auth, apns["topic"], token, body_json)
+        code, detail = post(host, auth, apns["topic"], token, body_json,
+                            push_type, priority)
 
         # A token is only valid in the environment that issued it: a build
         # installed from Xcode gets a development token, one from TestFlight or
@@ -146,13 +159,15 @@ def send(title, body, screen=None):
         # testing, so fall back to the other host rather than giving up - there
         # is no way to tell the two kinds of token apart by looking at them.
         if code == "400" and "BadDeviceToken" in detail:
-            code, detail = post(other, auth, apns["topic"], token, body_json)
+            code, detail = post(other, auth, apns["topic"], token, body_json,
+                                push_type, priority)
             if code == "200":
-                print(f"sent to {token[:12]}... (on the other environment)")
+                print(f"{'woke' if silent else 'sent to'} {token[:12]}... "
+                      f"(on the other environment)")
                 continue
 
         if code == "200":
-            print(f"sent to {token[:12]}...")
+            print(f"{'woke' if silent else 'sent to'} {token[:12]}...")
         else:
             failures += 1
             # 403 bad key/team, 410 token no longer registered
@@ -162,8 +177,13 @@ def send(title, body, screen=None):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--title", required=True)
-    ap.add_argument("--body", required=True)
+    ap.add_argument("--title")
+    ap.add_argument("--body")
     ap.add_argument("--screen", choices=["rss", "main"])
+    ap.add_argument("--silent", action="store_true",
+                    help="wake the app to check for itself, showing nothing; "
+                         "run this on a timer instead of polling the feed here")
     a = ap.parse_args()
-    sys.exit(send(a.title, a.body, a.screen))
+    if not a.silent and not (a.title and a.body):
+        ap.error("--title and --body are required unless --silent")
+    sys.exit(send(a.title, a.body, a.screen, a.silent))

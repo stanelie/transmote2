@@ -32,3 +32,36 @@ against the sandbox host returns `403 BadEnvironmentKeyInToken`.
 
 `transmote_push.conf`, `devices.json`, `rss_seen.txt`, `.apns_jwt` and the
 `.p8` key. All are gitignored; the repository is public.
+
+## Waking the app instead of polling for it
+
+`rss_poll.py` fetches the feed here and pushes a ready-made notification. That
+means this machine has to hold a copy of the feed URL — a setting that belongs
+to the app, since the user can change it — plus `rss_seen.txt` to remember what
+it already announced.
+
+`--silent` avoids all of that. It sends a push with no content at all:
+
+    transmote_push.py --silent
+
+The app wakes for about 30 seconds, checks its *own* RSS feed and its *own*
+Transmission server, and posts local notifications itself. This machine learns
+nothing and stores nothing. A timer is all it is:
+
+    # every six hours, tell Transmote to go and look
+    0 */6 * * * /opt/transmote/transmote_push.py --silent >/dev/null 2>&1
+
+Worth knowing before relying on it:
+
+- **A force-quit app gets no silent pushes.** iOS withholds them until the user
+  opens the app again. Visible alert pushes, like the completion hook's, still
+  arrive. This is the same limitation `BGAppRefreshTask` has, so the wake-up is
+  an improvement on it, not a cure.
+- **Low Power Mode holds them**, and iOS throttles them generally. Six-hourly is
+  well inside any budget, but no single wake is guaranteed.
+- **Nothing here can tell whether the check found anything.** The app reports
+  that to iOS, not to us, which is what earns it future wake-ups.
+
+Because a wake-up carries no content, the sender does not need to be the user's
+Transmission box, or know anything about them. One timer anywhere can serve
+every device whose token it holds.
