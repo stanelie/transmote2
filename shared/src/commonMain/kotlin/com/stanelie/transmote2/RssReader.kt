@@ -11,7 +11,12 @@ import nl.adaptivity.xmlutil.xmlStreaming
 data class RssItem(
     val title: String,
     val link: String,
-    val guid: String
+    val guid: String,
+    // What to hand Transmission. Torrent feeds conventionally put the
+    // human-readable details page in <link> and the .torrent (or a magnet) in
+    // <enclosure url="...">, so the enclosure wins when the feed has one;
+    // feeds that point <link> straight at the file still work.
+    val downloadUrl: String = link
 )
 
 // Shared SharedPreferences-style keys for RSS "seen"/"notified" tracking, used by
@@ -47,12 +52,18 @@ class RssReader {
         var currentTitle: String? = null
         var currentLink: String? = null
         var currentGuid: String? = null
+        var currentEnclosure: String? = null
         val text = StringBuilder()
 
         while (reader.hasNext()) {
             when (reader.next()) {
                 EventType.START_ELEMENT -> {
                     if (reader.localName.equals("item", ignoreCase = true)) inItem = true
+                    if (inItem && reader.localName.equals("enclosure", ignoreCase = true)) {
+                        currentEnclosure = (0 until reader.attributeCount)
+                            .firstOrNull { reader.getAttributeLocalName(it).equals("url", ignoreCase = true) }
+                            ?.let { reader.getAttributeValue(it) }
+                    }
                     text.clear()
                 }
                 EventType.TEXT, EventType.CDSECT -> text.append(reader.text)
@@ -67,15 +78,20 @@ class RssReader {
                             val link = currentLink ?: ""
                             // Use link as fallback for guid
                             val guid = currentGuid ?: link
+                            val download = currentEnclosure?.trim()?.takeIf { it.isNotBlank() }
+                                ?: link.trim()
 
-                            if (title.isNotBlank() && link.isNotBlank()) {
-                                items.add(RssItem(title.trim(), link.trim(), guid.trim()))
+                            if (title.isNotBlank() && download.isNotBlank()) {
+                                items.add(
+                                    RssItem(title.trim(), link.trim(), guid.trim(), download)
+                                )
                             }
 
                             inItem = false
                             currentTitle = null
                             currentLink = null
                             currentGuid = null
+                            currentEnclosure = null
                         }
                     }
                     text.clear()

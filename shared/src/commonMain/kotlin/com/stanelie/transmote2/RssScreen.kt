@@ -64,7 +64,7 @@ fun RssScreen(
                         item = item,
                         isNew = isNew,
                         onClick = {
-                            onAddTorrent(item.link)
+                            onAddTorrent(item.downloadUrl)
                             navController.navigate(Routes.MAIN_SCREEN)
                         }
                     )

@@ -3,10 +3,12 @@ package com.stanelie.transmote2
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -306,20 +308,60 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
         return makeRpcCall("torrent-rename-path", args)
     }
 
-    // Transmission's "filename" takes anything it can fetch itself: a magnet
-    // URI or an http(s) URL pointing at a .torrent. Only raw base64 torrent
-    // bytes go in "metainfo". RSS <link> elements are http(s) URLs, so sending
-    // them as metainfo made the server reject them as a corrupt torrent.
+    // A magnet goes in "filename" for the server to resolve; raw base64 torrent
+    // bytes go in "metainfo". An http(s) URL could go in either, and we prefer
+    // fetching it ourselves - see fetchTorrentArgs.
+    @OptIn(ExperimentalEncodingApi::class)
     suspend fun addTorrent(magnetOrBase64: String): RpcResponse<Unit> {
         val source = magnetOrBase64.trim()
-        val isFetchableUrl = source.startsWith("magnet:", ignoreCase = true) ||
+        val args = when {
+            source.startsWith("magnet:", ignoreCase = true) ->
+                TorrentAddArgs(filename = source)
             source.startsWith("http://", ignoreCase = true) ||
-            source.startsWith("https://", ignoreCase = true)
-        val args = if (isFetchableUrl) {
-            TorrentAddArgs(filename = source)
-        } else {
-            TorrentAddArgs(metainfo = source)
+                source.startsWith("https://", ignoreCase = true) ->
+                fetchTorrentArgs(source)
+            else -> TorrentAddArgs(metainfo = source)
         }
         return makeRpcCall("torrent-add", args)
+    }
+
+    // Transmission can fetch an http(s) .torrent itself, but the daemon often
+    // cannot reach the host the feed came from - a VPN killswitch, a split DNS
+    // view - and a fetch that returns an error page surfaces only as the
+    // server's opaque "unrecognized info". The device showing the feed can
+    // reach the host by definition, so download the torrent here and send the
+    // bytes. If we cannot reach it, hand the URL over and let the server try.
+    @OptIn(ExperimentalEncodingApi::class)
+    private suspend fun fetchTorrentArgs(url: String): TorrentAddArgs {
+        val response = try {
+            client.get(url)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.e(TAG, "could not fetch $url (${e.message}); letting the server try")
+            return TorrentAddArgs(filename = url)
+        }
+
+        if (!response.status.isSuccess()) {
+            throw IllegalStateException("$url returned ${response.status}")
+        }
+
+        val bytes = response.readRawBytes()
+        // A .torrent is a bencoded dictionary, so it always starts with 'd'.
+        if (bytes.isNotEmpty() && bytes[0] == 'd'.code.toByte()) {
+            return TorrentAddArgs(metainfo = Base64.encode(bytes))
+        }
+
+        // Some feeds link to a page or a redirect stub that holds a magnet.
+        val head = bytes.decodeToString(0, minOf(bytes.size, 2048)).trim()
+        val magnet = Regex("magnet:\\?[^\"'<>\\s]+").find(head)?.value
+        if (magnet != null) {
+            return TorrentAddArgs(filename = magnet)
+        }
+
+        throw IllegalStateException(
+            "$url served ${response.headers[HttpHeaders.ContentType] ?: "unknown content"}, " +
+                "not a .torrent"
+        )
     }
 }
