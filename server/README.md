@@ -48,10 +48,10 @@ The app wakes for about 30 seconds, checks its *own* RSS feed and its *own*
 Transmission server, and posts local notifications itself. This machine learns
 nothing and stores nothing. A timer is all it is:
 
-    # every six hours, tell Transmote to go and look. Pipe the output
+    # every two hours, tell Transmote to go and look. Pipe the output
     # somewhere: a silent push shows nothing on the phone, so the sender's own
     # "woke ..." or "FAILED ... BadDeviceToken" line is the only sign it ran.
-    7 */6 * * * debian-transmission /opt/transmote/transmote_push.py --silent 2>&1 | /usr/bin/logger -t transmote-wake
+    7 */2 * * * debian-transmission /opt/transmote/transmote_push.py --silent 2>&1 | /usr/bin/logger -t transmote-wake
 
 Read it back with `journalctl -t transmote-wake`. Run it as whichever user owns
 `transmote_push.conf` - it is mode 600, and the JWT cache is written beside it.
@@ -62,8 +62,9 @@ Worth knowing before relying on it:
   opens the app again. Visible alert pushes, like the completion hook's, still
   arrive. This is the same limitation `BGAppRefreshTask` has, so the wake-up is
   an improvement on it, not a cure.
-- **Low Power Mode holds them**, and iOS throttles them generally. Six-hourly is
-  well inside any budget, but no single wake is guaranteed.
+- **Low Power Mode holds them**, and iOS throttles them generally. Two-hourly
+  is well inside any budget - and waking more often also teaches iOS that the
+  app is worth waking - but no single wake is guaranteed.
 - **Nothing here can tell whether the check found anything.** The app reports
   that to iOS, not to us, which is what earns it future wake-ups.
 
