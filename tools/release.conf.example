@@ -1,0 +1,16 @@
+# Copy to tools/release.conf (gitignored) and fill in.
+# The .p8 itself stays in ~/.appstoreconnect/private_keys/AuthKey_<id>.p8 and
+# is never read from here.
+
+# App Store Connect API key. Must be an *Admin* key: an App Manager key cannot
+# sign a distribution build and fails with "Cloud signing permission error".
+ASC_KEY_ID=HVZPLWQVU4
+ASC_ISSUER_ID=c8ddfd60-3343-4257-b1aa-d6e779530ccb
+
+# From: tools/asc.py app-id --bundle-id ca.exmachina.transmote2
+ASC_APP_ID=6832608163
+
+# The TestFlight group to hand finished builds to. From:
+#   curl -H "Authorization: Bearer <jwt>" \
+#     https://api.appstoreconnect.apple.com/v1/apps/$ASC_APP_ID/betaGroups
+ASC_GROUP_ID=c2891d54-c45d-4ad3-a28a-37ac97464e30

@@ -41,3 +41,6 @@ server/transmote_push.conf
 server/rss_seen.txt
 server/.apns_jwt
 server/devices.json
+
+# release tooling: key ids are not secrets, but they are per-account
+tools/release.conf
