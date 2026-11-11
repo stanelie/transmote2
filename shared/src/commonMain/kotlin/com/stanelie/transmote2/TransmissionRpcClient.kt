@@ -209,7 +209,13 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
                 throw Exception("RPC call failed with status: ${response.status}")
             }
 
-            return response.body()
+            // A refused request still comes back as HTTP 200 with the reason
+            // in "result"; without this check failures pass silently.
+            val parsed: RpcResponse<R> = response.body()
+            if (parsed.result != "success") {
+                throw IllegalStateException("$method refused by Transmission: ${parsed.result}")
+            }
+            return parsed
         }
 
         lastTransportFailure?.let {
@@ -300,11 +306,19 @@ class TransmissionRpcClient(private val settings: ConnectionSettings) {
         return makeRpcCall("torrent-rename-path", args)
     }
 
+    // Transmission's "filename" takes anything it can fetch itself: a magnet
+    // URI or an http(s) URL pointing at a .torrent. Only raw base64 torrent
+    // bytes go in "metainfo". RSS <link> elements are http(s) URLs, so sending
+    // them as metainfo made the server reject them as a corrupt torrent.
     suspend fun addTorrent(magnetOrBase64: String): RpcResponse<Unit> {
-        val args = if (magnetOrBase64.startsWith("magnet:")) {
-            TorrentAddArgs(filename = magnetOrBase64)
+        val source = magnetOrBase64.trim()
+        val isFetchableUrl = source.startsWith("magnet:", ignoreCase = true) ||
+            source.startsWith("http://", ignoreCase = true) ||
+            source.startsWith("https://", ignoreCase = true)
+        val args = if (isFetchableUrl) {
+            TorrentAddArgs(filename = source)
         } else {
-            TorrentAddArgs(metainfo = magnetOrBase64)
+            TorrentAddArgs(metainfo = source)
         }
         return makeRpcCall("torrent-add", args)
     }
