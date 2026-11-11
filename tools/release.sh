@@ -55,10 +55,10 @@ if [ "$SKIP_BUMP" = 0 ]; then
   if [ "$DRY" = 0 ]; then
     sed -i '' "s/versionCode = $CURRENT_CODE/versionCode = $BUILD/" "$GRADLE"
     sed -i '' "s/versionName = \".*\"/versionName = \"$VERSION\"/" "$GRADLE"
-    # CFBundleVersion and CFBundleShortVersionString are the <string> on the
-    # line after their <key>, so edit by key rather than by value.
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
-                            -c "Set :CFBundleVersion $BUILD" "$PLIST"
+    # Not PlistBuddy: it rewrites the file and silently drops the XML
+    # comments that explain why some of these keys are here.
+    python3 -I tools/setplist.py "$PLIST" CFBundleShortVersionString "$VERSION"
+    python3 -I tools/setplist.py "$PLIST" CFBundleVersion "$BUILD"
     plutil -lint "$PLIST" >/dev/null
     git add "$GRADLE" "$PLIST"
     git commit -qm "Bump to $VERSION (versionCode $BUILD) for both platforms"
