@@ -18,6 +18,7 @@ CONF=tools/release.conf
 PLIST=iosApp/iosApp/Info.plist
 GRADLE=app/build.gradle.kts
 WORK=${TMPDIR:-/tmp}/transmote-release
+BUILT_APK=app/build/outputs/apk/debug/app-debug.apk
 
 VERSION=${1:-}
 shift || true
@@ -39,6 +40,9 @@ done
 [ -n "$VERSION" ] || { echo "usage: tools/release.sh <version> --notes <file>" >&2; exit 2; }
 [ -f "$CONF" ] || { echo "missing $CONF (see $CONF.example)" >&2; exit 2; }
 set -a; . "./$CONF"; set +a
+
+# What gets attached to the GitHub release: app name and version in the file name.
+RELEASE_APK=app/build/outputs/apk/debug/Transmote-$VERSION.apk
 
 say() { printf '\n== %s\n' "$*"; }
 run() { if [ "$DRY" = 1 ]; then echo "+ $*"; else "$@"; fi; }
@@ -68,7 +72,7 @@ fi
 if [ "$SKIP_ANDROID" = 0 ]; then
   say "building the Android APK"
   run ./gradlew :app:assembleDebug
-  APK=app/build/outputs/apk/debug/app-debug.apk
+  APK=$BUILT_APK
   if [ "$DRY" = 0 ]; then
     # Gradle reports success for an up-to-date task, so confirm the APK on
     # disk is really the version we just asked for.
@@ -79,6 +83,8 @@ if [ "$SKIP_ANDROID" = 0 ]; then
       *"versionCode='$BUILD'"*) ;;
       *) echo "APK is not build $BUILD" >&2; exit 1 ;;
     esac
+    cp "$APK" "$RELEASE_APK"
+    echo "release asset: $RELEASE_APK"
   fi
 fi
 
@@ -125,9 +131,17 @@ fi
 if [ "$SKIP_GH" = 0 ]; then
   say "tagging and publishing v$VERSION"
   [ -n "$NOTES" ] || { echo "--notes <file> is required to publish" >&2; exit 2; }
+  # When resuming with --skip-android the named copy may not exist yet.
+  if [ "$DRY" = 0 ] && [ ! -f "$RELEASE_APK" ]; then
+    AAPT=$(ls -d "$HOME"/Library/Android/sdk/build-tools/*/ | tail -1)aapt2
+    case $("$AAPT" dump badging "$BUILT_APK") in
+      *"versionName='$VERSION'"*) cp "$BUILT_APK" "$RELEASE_APK" ;;
+      *) echo "$BUILT_APK is not version $VERSION" >&2; exit 1 ;;
+    esac
+  fi
   run git tag -a "v$VERSION" -m "v$VERSION"
   run git push origin HEAD --tags
-  run gh release create "v$VERSION" app/build/outputs/apk/debug/app-debug.apk \
+  run gh release create "v$VERSION" "$RELEASE_APK" \
     --title "v$VERSION" --notes-file "$NOTES"
 fi
 
