@@ -125,7 +125,7 @@ class NotificationHelper(private val context: Context) {
     private fun addTorrentPendingIntent(item: RssItem): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = ACTION_ADD_RSS_TORRENT
-            putExtra(EXTRA_RSS_LINK, item.link)
+            putExtra(EXTRA_RSS_LINK, item.downloadUrl)
             putExtra(EXTRA_RSS_GUID, item.guid)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
