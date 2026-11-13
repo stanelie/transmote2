@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : ViewModel() {
@@ -152,10 +153,21 @@ class MainViewModel(private val preferencesDataStore: PreferencesDataStore) : Vi
         }
     }
 
+    /**
+     * The client is normally built by the settings collector in init, but that races with a
+     * torrent being added right at launch (tapping an RSS notification or opening a magnet link
+     * cold-starts the app). Fall back to building it from the stored settings so the add is never
+     * silently dropped.
+     */
+    private suspend fun clientForAdd(): TransmissionRpcClient =
+        transmissionRpcClient
+            ?: TransmissionRpcClient(preferencesDataStore.settingsFlow.first())
+                .also { transmissionRpcClient = it }
+
     fun addTorrent(magnetOrBase64: String) {
         viewModelScope.launch {
             try {
-                transmissionRpcClient?.addTorrent(magnetOrBase64)
+                clientForAdd().addTorrent(magnetOrBase64)
                 performFetch() // Refresh list after adding
                 _scrollToTopEvent.tryEmit(Unit)
             } catch (e: CancellationException) {
